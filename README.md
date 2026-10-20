@@ -7,8 +7,8 @@ A Chrome extension that replaces GitHub's short "Top repositories" lists with yo
 own sections that sync between your Chrome devices. Read-only, with no server.</p>
 
 <p align="center">
+<a href="https://chromewebstore.google.com/detail/github-repo-navigator/ejpgocgeebjkkaiocccnngjpkkjpbonc">Chrome Web Store</a> ·
 <a href="https://jd2005l.github.io/GitHubRepoNavigator/">Website</a> ·
-<a href="#install">Install</a> ·
 <a href="PRIVACY.md">Privacy</a> ·
 <a href="https://github.com/sponsors/JD2005L">Sponsor</a>
 </p>
@@ -44,7 +44,7 @@ stays in place.
 
 ## Install
 
-**Chrome Web Store:** coming soon. Website: <https://jd2005l.github.io/GitHubRepoNavigator/>.
+**Chrome Web Store:** [Add to Chrome](https://chromewebstore.google.com/detail/github-repo-navigator/ejpgocgeebjkkaiocccnngjpkkjpbonc). Website: <https://jd2005l.github.io/GitHubRepoNavigator/>.
 
 **From source (unpacked):** requires Chrome 140 or newer, Node.js 22.22.2+ (or 24.15+) and npm.
 
