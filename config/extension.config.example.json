@@ -1,0 +1,6 @@
+{
+  "$comment": "Copy to config/extension.config.json (git-ignored) or set the matching GRN_* environment variables. Nothing here is secret, but keep per-developer values out of git.",
+  "githubClientId": "",
+  "githubAppSlug": "",
+  "extensionPublicKey": ""
+}

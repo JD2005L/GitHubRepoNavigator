@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+dist/
+dist-e2e/
+dist-store/
+release/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+*.log
+.DS_Store
+# Local build configuration (GitHub App client ID, extension public key). Never commit.
+config/extension.config.json
+# Private signing keys must never be committed.
+*.pem
+.claude/

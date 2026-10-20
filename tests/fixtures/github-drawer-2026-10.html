@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<!--
+  FIXTURE: github.com page with the GLOBAL NAVIGATION DRAWER OPEN (React "global-nav-menu" partial, Primer React Dialog).
+  Assembled 2026-10-01 for GitHubRepoNavigator detection tests. NOT a byte-for-byte capture of a live page.
+
+  Provenance legend (search for "SRC:" / "INFERRED:" comments):
+   [SAMPLE-2026-05]  real logged-in page saved to a public repo (hastruct/hastruct.github.io raw/default.html.sav,
+                     committed 2026-05-13, release d393c50e...) - header, react-partial-anchor, embedded props, html attrs.
+   [ARCHIVE-2026-01] real rendered React DOM archived by blakegearin/github-custom-global-navigation
+                     (archive/2026-01-18/source/github-com-header.html) - NavList item markup, IconButton+tooltip markup.
+   [BUNDLE-2026-10]  GitHub's public JS bundles served by github.githubassets.com on 2026-10-01
+                     (release a6415d5e..., chunks 7n-ed4d2431d7186e01.js = GlobalNavMenu, ku-483d2e3210349841.js = TopRepos,
+                     primer-react-266c7f3600a53b8a.js) - component tree, labels, data-testids, class hashes, data-component attrs.
+   [SAMPLE-2025-09]  real page (smeenka/foc-simple LICENSE-MIT.html, 2025-09-06) - legacy ViewComponent drawer (see <template> at end).
+  The drawer DOM itself was never captured opened; it is RECONSTRUCTED from [BUNDLE-2026-10] + [ARCHIVE-2026-01].
+  Hashed class suffixes (e.g. -So4vC) WILL churn; they changed between the 2026-05 and 2026-10 bundles. Do not select on them.
+  IDs like _r_1a_ are React useId output and are illustrative only. COMPACT build: octicon path data elided to d="M0 0" except x/search/three-bars/mark-github (structure unchanged).
+-->
+<html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark" data-a11y-animated-images="system" data-a11y-link-underlines="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <meta name="release" content="a6415d5eea580698e65fbbdad6c9be1802b92c99">
+  <meta name="ui-target" content="full">
+  <meta name="turbo-body-classes" content="logged-in env-production page-responsive">
+  <meta name="disable-turbo" content="false">
+  <meta name="color-scheme" content="light dark">
+  <title>GitHub</title>
+  <!-- INFERRED/APPROXIMATION: GitHub ships these tokens in light-*.css / dark-*.css / primer-primitives-*.css and the
+       layout in primer-react-css.*.module.css. Token VALUES below were copied from the 2026-10-01 CSS files; the layout rules
+       are a hand-written approximation so the fixture renders plausibly. -->
+  <style>
+    /* SRC: primer-primitives-ed9ca172356fd545.css (2026-10-01) - size/typography tokens on :root */
+    :root {
+      --base-size-4: .25rem; --base-size-6: .375rem; --base-size-8: .5rem; --base-size-16: 1rem;
+      --base-text-size-xs: .75rem; --base-text-size-sm: .875rem; --base-text-size-md: 1rem;
+      --text-body-size-small: var(--base-text-size-xs); --text-body-size-medium: var(--base-text-size-sm);
+      --base-text-weight-semibold: 600;
+      --borderRadius-small: .1875rem; --borderRadius-medium: .375rem; --borderRadius-large: .75rem;
+      --fontStack-sansSerif: "Mona Sans VF", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    }
+    /* SRC: light-99f877e9ddfc0e51.css / dark-79ad2ace604703b3.css (2026-10-01). Same selector shapes GitHub uses:
+       variables are scoped by the <html> data-color-mode / data-light-theme / data-dark-theme attributes.
+       NOTE: legacy --color-fg-default etc. are NOT defined any more; GitHub CSS only uses them as var() fallbacks. */
+    [data-color-mode=light][data-light-theme=light], [data-color-mode=auto][data-light-theme=light] {
+      --fgColor-default: #1f2328; --fgColor-muted: #59636e; --fgColor-accent: #0969da; --fgColor-onEmphasis: #fff;
+      --bgColor-default: #fff; --bgColor-muted: #f6f8fa; --bgColor-neutral-muted: #818b981f; --bgColor-inset: var(--bgColor-muted);
+      --borderColor-default: #d1d9e0; --borderColor-muted: #d1d9e0b3;
+      --control-transparent-bgColor-hover: #818b981a; --control-transparent-bgColor-active: #818b9826;
+      --overlay-bgColor: #fff; --overlay-backdrop-bgColor: #c8d1da66;
+      --shadow-floating-small: 0 0 0 1px #d1d9e040, 0 6px 12px -3px #25292e0a, 0 6px 18px 0 #25292e1f;
+    }
+    [data-color-mode=dark][data-dark-theme=dark], [data-color-mode=auto][data-light-theme=dark] {
+      --fgColor-default: #f0f6fc; --fgColor-muted: #9198a1; --fgColor-accent: #4493f8; --fgColor-onEmphasis: #fff;
+      --bgColor-default: #0d1117; --bgColor-muted: #151b23; --bgColor-neutral-muted: #656c7633; --bgColor-inset: #010409;
+      --borderColor-default: #3d444d; --borderColor-muted: #3d444db3;
+      --control-transparent-bgColor-hover: #656c7633; --control-transparent-bgColor-active: #656c7640;
+      --overlay-bgColor: #010409; --overlay-backdrop-bgColor: #21283066;
+      --shadow-floating-small: 0 0 0 1px #3d444d, 0 6px 12px -3px #01040966, 0 6px 18px 0 #01040966;
+    }
+    @media (prefers-color-scheme: dark) {
+      [data-color-mode][data-color-mode=auto][data-dark-theme=dark] {
+        --fgColor-default: #f0f6fc; --fgColor-muted: #9198a1; --fgColor-accent: #4493f8; --fgColor-onEmphasis: #fff;
+        --bgColor-default: #0d1117; --bgColor-muted: #151b23; --bgColor-neutral-muted: #656c7633; --bgColor-inset: #010409;
+        --borderColor-default: #3d444d; --borderColor-muted: #3d444db3;
+        --control-transparent-bgColor-hover: #656c7633; --control-transparent-bgColor-active: #656c7640;
+        --overlay-bgColor: #010409; --overlay-backdrop-bgColor: #21283066;
+        --shadow-floating-small: 0 0 0 1px #3d444d, 0 6px 12px -3px #01040966, 0 6px 18px 0 #01040966;
+      }
+    }
+    /* SRC primer.css pattern: [data-color-mode]{color:var(--fgColor-default,var(--color-fg-default));background-color:var(--bgColor-default,...)} */
+    [data-color-mode] { color: var(--fgColor-default); background-color: var(--bgColor-default); }
+    body { margin: 0; font-family: var(--fontStack-sansSerif); font-size: var(--text-body-size-medium); line-height: 1.5;
+           background: var(--bgColor-default); color: var(--fgColor-default); }
+    .sr-only, .prc-VisuallyHidden-VisuallyHidden-Q0qSB { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+           overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .show-on-focus:not(:focus) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .AppHeader { background: var(--bgColor-inset); box-shadow: inset 0 -1px var(--borderColor-default); padding: 16px; }
+    .AppHeader-globalBar-start { display: flex; align-items: center; gap: 8px; }
+    .AppHeader-button { width: 32px; height: 32px; display: inline-grid; place-items: center; border-radius: var(--borderRadius-medium);
+           border: 1px solid var(--borderColor-default); background: transparent; color: var(--fgColor-muted); }
+    .AppHeader-logo { color: var(--fgColor-default); }
+    [popover] { display: none; }
+    template { display: none; }
+    /* APPROXIMATION of primer-react-css (2026-10-01) rules for the opened left Dialog + NavList */
+    .prc-Dialog-Backdrop-5Nt2U { background-color: var(--overlay-backdrop-bgColor); display: flex; position: fixed; inset: 0;
+           justify-content: flex-start; align-items: center; }
+    .prc-Dialog-Dialog-G8cDF { background-color: var(--overlay-bgColor); box-shadow: var(--shadow-floating-small); display: flex;
+           flex-direction: column; min-width: 296px; width: 320px; height: 100dvh; border-radius: 0 var(--borderRadius-large) var(--borderRadius-large) 0; }
+    .prc-Stack-Stack-UQ9k6[data-direction=horizontal] { display: flex; flex-direction: row; }
+    .prc-Dialog-Dialog-G8cDF > .prc-Stack-Stack-UQ9k6 { justify-content: space-between; align-items: center; padding: 16px; }
+    .prc-Dialog-DialogOverflowWrapper-JvHzz { flex-grow: 1; overflow-y: auto; }
+    .p-2 { padding: 8px; }
+    .prc-Button-IconButton-fyge7 { display: inline-grid; place-items: center; border: 0; background: transparent; color: var(--fgColor-muted);
+           border-radius: var(--borderRadius-medium); cursor: pointer; }
+    .prc-Button-IconButton-fyge7[data-size=medium] { width: 32px; height: 32px; }
+    .prc-Button-IconButton-fyge7[data-size=small] { width: 28px; height: 28px; }
+    .prc-Button-IconButton-fyge7:hover { background: var(--control-transparent-bgColor-hover); }
+    .prc-ActionList-ActionList-rPFF2, .prc-ActionList-GroupList-V5B3- { list-style: none; margin: 0; padding: 0; }
+    .prc-ActionList-Divider-taVfb { display: block; height: 1px; margin: 8px 0; background: var(--borderColor-muted); list-style: none; }
+    .prc-ActionList-Divider-taVfb:first-child { display: none; }
+    .prc-ActionList-ActionListItem-So4vC { margin-inline: var(--base-size-8); border-radius: var(--borderRadius-medium); list-style: none; }
+    .prc-ActionList-ActionListItem-So4vC:hover { background: var(--control-transparent-bgColor-hover); }
+    .prc-ActionList-ActionListItem-So4vC[data-active] { background: var(--control-transparent-bgColor-active); }
+    .prc-ActionList-ActionListContent-KBb8- { display: grid; grid-template-columns: 0 auto 1fr; align-items: center; gap: 8px; width: 100%;
+           padding: 6px 8px; color: var(--fgColor-default); text-decoration: none; background: none; border: 0; font: inherit; text-align: left; cursor: pointer; }
+    .prc-ActionList-LeadingVisual-NBr28 { display: flex; color: var(--fgColor-muted); }
+    .prc-Avatar-Avatar-0xaUi { border-radius: 50%; box-shadow: 0 0 0 1px var(--borderColor-muted); }
+    .prc-ActionList-GroupHeadingWrap-laXcX { color: var(--fgColor-muted); font-size: var(--text-body-size-small); font-weight: 600;
+           padding: var(--base-size-6) var(--base-size-16); display: flex; }
+    .prc-ActionList-GroupHeading-STzxi { margin: 0; font-size: inherit; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+    .color-fg-muted { color: var(--fgColor-muted) !important; }
+    .f6 { font-size: 12px !important; }
+
+  </style>
+</head>
+<body class="logged-in env-production page-responsive" style="word-wrap: break-word; --prc-dialog-scrollgutter: 0px" data-dialog-scroll-disabled="">
+  <!-- SRC [BUNDLE-2026-10]: Primer Dialog sets body[data-dialog-scroll-disabled] + --prc-dialog-scrollgutter while any Dialog is open
+       (older builds instead added class prc-Dialog-DisableScroll-* to the dialog element). -->
+  <div data-turbo-body class="logged-in env-production page-responsive" style="word-wrap: break-word;">
+
+    <!-- SRC [SAMPLE-2026-05] + live logged-out page 2026-10-01: portal root is the first child of [data-turbo-body] and is
+         turbo-permanent, so it survives Turbo navigations. (2026-05 sample also had role="region" on it.) -->
+    <div id="__primerPortalRoot__" style="z-index: 1000; position: absolute; width: 100%;" data-turbo-permanent>
+      <!-- SRC [BUNDLE-2026-10]: Primer Portal host div (data-component="Portal" is new in 2026 builds; older builds: bare div) -->
+      <div data-component="Portal" style="position: relative; z-index: 1;">
+        <!-- SRC [BUNDLE-2026-10]: Dialog backdrop. Click on backdrop (target===currentTarget) closes with reason "escape". -->
+        <div class="prc-Dialog-Backdrop-5Nt2U" data-position-regular="left">
+          <!-- SRC [BUNDLE-2026-10]: SideNavMenu = <Dialog width="medium" position="left" renderHeader renderBody>, no footer.
+               aria-describedby points at a subtitle id that is NOT rendered (no subtitle) - real Primer behaviour. -->
+          <div role="dialog" aria-labelledby="_r_23_" aria-describedby="_r_24_" aria-modal="true" data-position-regular="left" data-width="medium" data-height="auto" class="prc-Dialog-Dialog-G8cDF" data-component="Dialog">
+
+            <!-- SRC [BUNDLE-2026-10]: SideNavMenuHeader = Stack(horizontal, justify space-between, padding normal):
+                 VisuallyHidden <h2 id=dialogLabelId>"Global navigation menu"</h2> (was "Global Navigation Menu" in 2026-05 build),
+                 MarkGithubIcon size="medium" (32px), IconButton "Close menu". INFERRED: exact Stack data-* attribute set. -->
+            <div class="prc-Stack-Stack-UQ9k6" data-component="Stack" data-direction="horizontal" data-align="stretch" data-wrap="nowrap" data-justify="space-between" data-padding="normal">
+              <span class="prc-VisuallyHidden-VisuallyHidden-Q0qSB"><h2 id="_r_23_">Global navigation menu</h2></span>
+              <svg aria-hidden="true" focusable="false" class="octicon octicon-mark-github" viewBox="0 0 24 24" width="32" height="32" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path></svg>
+              <button data-component="IconButton" type="button" class="prc-Button-ButtonBase-9n-Xk prc-Button-IconButton-fyge7" data-loading="false" data-no-visuals="true" data-size="medium" data-variant="invisible" aria-labelledby="_r_25_"><svg aria-hidden="true" focusable="false" class="octicon octicon-x" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"></path></svg></button>
+              <!-- SRC [ARCHIVE-2026-01]: Primer IconButton moves aria-label into a TooltipV2 sibling and uses aria-labelledby. -->
+              <span class="prc-TooltipV2-Tooltip-tLeuB" data-direction="s" aria-hidden="true" id="_r_25_" popover="auto">Close menu</span>
+            </div>
+
+            <!-- SRC [BUNDLE-2026-10]: Dialog wraps the body in ScrollableRegion (gets role="region" tabindex="0" only when it overflows) -->
+            <div aria-labelledby="_r_23_" role="region" tabindex="0" class="prc-ScrollableRegion-ScrollableRegion--xtjK prc-Dialog-DialogOverflowWrapper-JvHzz" data-component="ScrollableRegion">
+              <!-- SRC [BUNDLE-2026-10]: renderBody = <div className="p-2">{children}</div> -->
+              <div class="p-2">
+                <!-- SRC [BUNDLE-2026-10]: NavList = <nav data-component="NavList"> wrapping ActionList <ul>. No aria-label is passed. -->
+                <nav data-component="NavList">
+                  <ul class="prc-ActionList-ActionList-rPFF2" data-component="ActionList" data-dividers="false" data-variant="inset">
+
+                  <li class="prc-ActionList-Divider-taVfb" aria-hidden="true" data-component="ActionList.Divider"></li>
+                  <!-- GROUP 1 - SRC [BUNDLE-2026-10] labels/hrefs/testids. Home href is ABSOLUTE as seen in [ARCHIVE-2026-01] even though
+                       the props say "/dashboard": always normalise hrefs with new URL(href, location.origin). Labels in <=2026-05 builds were "Issues", "Pull requests" and
+                       "All repositories" was hidden by default. Optional items (server props decide): Feed, Docs(/writing), Spark. -->
+                  <li class="prc-ActionList-Group-lMIPQ" data-component="ActionList.Group">
+                    <ul class="prc-ActionList-GroupList-V5B3-">
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-active="true" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_11_--label" id="_r_11_" data-size="medium" aria-current="page" href="https://github.com/dashboard" data-testid="side-nav-menu-item-HOME" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-home" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_11_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Home</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_12_--label" id="_r_12_" data-size="medium" href="/issues" data-testid="side-nav-menu-item-ISSUES" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-issue-opened" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_12_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">All issues</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_13_--label" id="_r_13_" data-size="medium" href="/pulls" data-testid="side-nav-menu-item-PULL_REQUESTS" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-git-pull-request" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_13_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">All pull requests</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_14_--label" id="_r_14_" data-size="medium" href="/repos" data-testid="side-nav-menu-item-CONTRIBUTED_REPOS" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-repo" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_14_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">All repositories</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_15_--label" id="_r_15_" data-size="medium" href="/projects" data-testid="side-nav-menu-item-PROJECTS" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-table" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_15_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Projects</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_16_--label" id="_r_16_" data-size="medium" href="/discussions" data-testid="side-nav-menu-item-DISCUSSIONS" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-comment-discussion" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_16_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Discussions</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_17_--label" id="_r_17_" data-size="medium" href="https://github.com/codespaces" data-testid="side-nav-menu-item-CODESPACES" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-codespaces" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_17_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Codespaces</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_18_--label" id="_r_18_" data-size="medium" href="/copilot" data-testid="side-nav-menu-item-COPILOT" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-copilot" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_18_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Copilot</span></span></a>
+                    </li>
+                    </ul>
+                  </li>
+
+                  <li class="prc-ActionList-Divider-taVfb" aria-hidden="true" data-component="ActionList.Divider"></li>
+                  <!-- GROUP 2 - Explore / Marketplace / MCP registry (SRC [BUNDLE-2026-10]; hrefs from [SAMPLE-2026-05] props) -->
+                  <li class="prc-ActionList-Group-lMIPQ" data-component="ActionList.Group">
+                    <ul class="prc-ActionList-GroupList-V5B3-">
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_19_--label" id="_r_19_" data-size="medium" href="/explore" data-testid="side-nav-menu-item-EXPLORE" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-telescope" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_19_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Explore</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1a_--label" id="_r_1a_" data-size="medium" href="/marketplace" data-testid="side-nav-menu-item-MARKETPLACE" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-gift" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1a_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">Marketplace</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1b_--label" id="_r_1b_" data-size="medium" href="https://github.com/mcp" data-testid="side-nav-menu-item-MCP_REGISTRY" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><svg aria-hidden="true" focusable="false" class="octicon octicon-mcp" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M0 0"></path></svg></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1b_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">MCP registry</span></span></a>
+                    </li>
+                    </ul>
+                  </li>
+
+                  <li class="prc-ActionList-Divider-taVfb" aria-hidden="true" data-component="ActionList.Divider"></li>
+                  <!-- ===================== TOP REPOSITORIES (the ONLY part GitHubRepoNavigator replaces) =====================
+                       SRC [BUNDLE-2026-10] ku-*.js: DynamicSidePanelContent fetches /_side-panels/global.json on mount (i.e. when
+                       the drawer opens; TanStack Query + IndexedDB persister may make it render instantly on re-open). While loading,
+                       this whole group is replaced by:
+                         <li class="...Group..." ...><ul ...> Spinner data-testid="dynamic-side-content-loader" </ul></li>
+                       with className "d-flex flex-justify-center width-full tmp-my-3".
+                       It is the LAST group in the drawer; only an optional TeamsBanner (Primer Banner "Teams have moved") may follow.
+                       NavList.GroupHeading is lifted into ActionList.Group's heading slot => GroupHeadingWrap + <h3 id>, and the
+                       GroupList <ul> is aria-labelledby that h3 (INFERRED from bundle code: exact wrapper element div vs li). -->
+                  <li class="prc-ActionList-Group-lMIPQ" data-component="ActionList.Group">
+                    <div class="prc-ActionList-GroupHeadingWrap-laXcX" data-variant="subtle" data-component="GroupHeadingWrap">
+                      <h3 class="prc-NavList-GroupHeading-mN50z styles-module__groupHeading__tR4kX prc-ActionList-GroupHeading-STzxi" id="_r_26_" data-component="NavList.GroupHeading">
+                        <div>Top repositories</div>
+                        <!-- SRC [BUNDLE-2026-10]: filter/search toggle. aria-label "Search for repositories" becomes a tooltip
+                             (aria-labelledby). When active it is swapped for IconButton "Close search" (chevron-up,
+                             data-testid="dynamic-side-panel-items-close-search-button"). -->
+                        <button data-component="IconButton" type="button" class="prc-Button-ButtonBase-9n-Xk prc-Button-IconButton-fyge7" data-loading="false" data-no-visuals="true" data-size="small" data-variant="invisible" aria-labelledby="_r_27_" data-testid="dynamic-side-panel-items-search-button"><svg aria-hidden="true" focusable="false" class="octicon octicon-search" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"></path></svg></button>
+                        <span class="prc-TooltipV2-Tooltip-tLeuB" data-direction="s" aria-hidden="true" id="_r_27_" popover="auto">Search for repositories</span>
+                      </h3>
+                    </div>
+                    <ul aria-labelledby="_r_26_" class="prc-ActionList-GroupList-V5B3-">
+                    <!-- SEARCH-ACTIVE STATE (not rendered here) - SRC [BUNDLE-2026-10], INFERRED TextInput internals:
+                    <li tabindex="-1" class="styles-module__searchInputWrapper__bIMeq">
+                      <div class="d-flex width-full position-relative">
+                        <span class="prc-components-TextInputWrapper-Hpdqi prc-components-TextInputBaseWrapper-wY-n0 mr-1 flex-auto" data-leading-visual="true">
+                          <span class="TextInput-icon" aria-hidden="true">(search octicon)</span>
+                          <input type="text" autofocus aria-label="Search for repositories" placeholder="Search for repositories"
+                                 data-testid="dynamic-side-panel-items-search-input" value="">
+                        </span>
+                        (while fetching) <div class="styles-module__searchSpinner__NGViI">Spinner</div>
+                      </div>
+                    </li>
+                    Results come from /_side-panel-items/global/repositories?q=...&items_per_page=5... and replace the items below;
+                    "Show more" is hidden while searching. Placeholder is "Search for repositories" - "Find a repository..." is the
+                    OLD dashboard left-sidebar filter, not this drawer. -->
+
+                    <!-- SRC [BUNDLE-2026-10]: each repo = NavList.Item(as=router Link, to=item.url, data-testid="dynamic-side-panel-items-item")
+                         + LeadingVisual GitHubAvatar(size 16, adds ?size=32, data-testid="github-avatar") + text item.value ("owner/repo").
+                         JSON item schema: {id:number, value:string, url:string, avatar_url:string, has_more?:boolean}.
+                         INFERRED: href is "/owner/repo" (relative) - normalise with new URL(href, location.origin). Count is illustrative;
+                         the first page is items_per_page=5 and each "Show more" appends a page (max_pages=20). -->
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1c_--label" id="_r_1c_" data-size="medium" href="/primer/react" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/7143434?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1c_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">primer/react</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1d_--label" id="_r_1d_" data-size="medium" href="/refined-github/refined-github" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/53074291?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1d_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">refined-github/refined-github</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1e_--label" id="_r_1e_" data-size="medium" href="/microsoft/vscode" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/6154722?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1e_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">microsoft/vscode</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_1f_--label" id="_r_1f_" data-size="medium" href="/torvalds/linux" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/1024025?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_1f_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">torvalds/linux</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_20_--label" id="_r_20_" data-size="medium" href="/nodejs/node" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/9950313?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_20_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">nodejs/node</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_21_--label" id="_r_21_" data-size="medium" href="/github/docs" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/9919?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_21_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">github/docs</span></span></a>
+                    </li>
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <a class="prc-ActionList-ActionListContent-KBb8- prc-Link-Link-9ZwDx" tabindex="0" aria-labelledby="_r_22_--label" id="_r_22_" data-size="medium" href="/octocat/Hello-World" data-testid="dynamic-side-panel-items-item" data-component="NavList.Item" style="--subitem-depth: 0"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-LeadingVisual-NBr28 prc-ActionList-VisualWrap-bdCsS" data-component="ActionList.LeadingVisual"><img data-component="Avatar" class="prc-Avatar-Avatar-0xaUi" alt="" width="16" height="16" style="--avatarSize-regular: 16px" src="https://avatars.githubusercontent.com/u/583231?v=4&amp;size=32" data-testid="github-avatar"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_22_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label">octocat/Hello-World</span></span></a>
+                    </li>
+                    <!-- SRC [BUNDLE-2026-10]: "Show more" = ActionList.Item (button semantics, onSelect fetchNextPage); label switches to
+                         "Show even more" after 2 clicks. Only rendered when !loading && !searching && hasNextPage. -->
+                    <li class="prc-ActionList-ActionListItem-So4vC" data-component="ActionList.Item" data-has-description="false">
+                      <button type="button" class="prc-ActionList-ActionListContent-KBb8-" data-size="medium" tabindex="0" aria-labelledby="_r_28_--label" id="_r_28_" data-testid="dynamic-side-panel-items-show-more"><span class="prc-ActionList-Spacer-4tR2m"></span><span class="prc-ActionList-ActionListSubContent-gKsFp" data-component="ActionList.Item--DividerContainer"><span id="_r_28_--label" class="prc-ActionList-ItemLabel-81ohH" data-component="ActionList.Item.Label"><span class="color-fg-muted f6">Show more</span></span></span></button>
+                    </li>
+                    </ul>
+                  </li>
+                  <!-- ===================== END TOP REPOSITORIES ===================== -->
+
+                  </ul>
+                </nav>
+                <!-- SRC [BUNDLE-2026-10]: optional TeamsBanner (when /_side-panels/global.json has show_teams_banner) renders after the list:
+                     Primer Banner variant="info" title "Teams have moved" (hidden title), className "mx-2 tmp-my-3", link /settings/teams. -->
+              </div>
+            </div>
+            <!-- SRC [BUNDLE-2026-10]: NO footer. The React drawer has no "(c) GitHub / About / Blog / Terms..." footer; that footer existed
+                 only in the legacy ViewComponent drawer (<= 2025-09, see <template id="legacy-drawer-2025-09"> below). -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="position-relative header-wrapper js-header-wrapper">
+      <a href="#start-of-content" class="p-3 color-bg-accent-emphasis color-fg-on-emphasis show-on-focus js-skip-to-content">Skip to content</a>
+      <!-- HEADER VARIANT A (SRC [SAMPLE-2026-05]): server-rendered AppHeader. The React partial is lazily attached:
+           react-partial-anchor moves <template> content into itself on connect; the partial's JS then binds a click listener
+           to the anchor button and keeps aria-expanded/aria-haspopup in sync (SRC [BUNDLE-2026-10] react-core hook Mm). -->
+      <header class="AppHeader" role="banner">
+        <h2 class="sr-only">Navigation Menu</h2>
+        <div class="AppHeader-globalBar pb-2 js-global-bar">
+          <div class="AppHeader-globalBar-start responsive-context-region">
+            <div class="">
+              <react-partial-anchor>
+                <button data-target="react-partial-anchor.anchor" aria-label="Open global navigation menu" show_tooltip="false" type="button" data-view-component="true" class="AppHeader-button Button--secondary Button--medium Button p-0 color-fg-muted" aria-expanded="true" aria-haspopup="true"><span class="Button-content"><span class="Button-label"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-three-bars"><path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path></svg></span></span></button>
+                <!-- after connect the <template> is gone and its content lives here: -->
+                <react-partial partial-name="global-nav-menu" data-ssr="false" data-attempted-ssr="false" data-react-profiling="false">
+                  <script type="application/json" data-target="react-partial.embeddedData">{"props":{"home":{"href":"/dashboard","hotkey":"g d"},"feed":{"show":false,"href":"/feed"},"issues":{"href":"/issues","hotkey":"g i"},"pulls":{"href":"/pulls","hotkey":"g p"},"contributedRepos":{"show":false,"href":null,"hotkey":null},"projects":{"href":"/projects"},"discussions":{"show":true,"href":"/discussions"},"codespaces":{"show":true,"href":"https://github.com/codespaces"},"copilot":{"show":true,"href":"/copilot"},"spark":{"show":false,"href":null},"marketplace":{"show":true,"href":"/marketplace"},"mcp":{"show":true,"href":"https://github.com/mcp"},"explore":{"show":true,"href":"/explore"},"richContent":{"show":true,"contentUrl":"/_side-panels/global.json","repositoriesSearchUrl":"/_side-panel-items/global/repositories.json","teamsSearchUrl":"/_side-panel-items/global/teams.json"}}}</script>
+                  <!-- the Dialog is portaled to #__primerPortalRoot__; when closed this root renders nothing visible
+                       (2026-05 build rendered a hidden div.d-none of hotkey links data-testid="side-nav-menu-item-*" here) -->
+                  <div data-target="react-partial.reactRoot"></div>
+                </react-partial>
+              </react-partial-anchor>
+            </div>
+            <a class="AppHeader-logo ml-1" href="https://github.com/" data-hotkey="g d" aria-label="Homepage " data-turbo="false"><svg aria-hidden="true" height="32" viewBox="0 0 24 24" version="1.1" width="32" data-view-component="true" class="octicon octicon-mark-github v-align-middle"><path d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-2.764.509-3.479-.674-3.699-1.292-.124-.317-.66-1.293-1.127-1.554-.385-.207-.936-.715-.014-.729.866-.014 1.485.797 1.691 1.128.99 1.663 2.571 1.196 3.204.907.096-.715.385-1.196.701-1.471-2.448-.275-5.005-1.224-5.005-5.432 0-1.196.426-2.186 1.128-2.956-.111-.275-.496-1.402.11-2.915 0 0 .921-.288 3.024 1.128a10.193 10.193 0 0 1 2.75-.371c.936 0 1.871.123 2.75.371 2.104-1.43 3.025-1.128 3.025-1.128.605 1.513.221 2.64.111 2.915.701.77 1.127 1.747 1.127 2.956 0 4.222-2.571 5.157-5.019 5.432.399.344.743 1.004.743 2.035 0 1.471-.014 2.654-.014 3.025 0 .289.206.632.756.522C19.851 20.979 23 16.854 23 12c0-6.077-4.922-11-11-11Z"></path></svg></a>
+            <!-- context-region-controller / breadcrumbs, search, create, copilot, notifications, avatar omitted -->
+          </div>
+        </div>
+      </header>
+    </div>
+
+    <div id="start-of-content" class="show-on-focus"></div>
+    <div class="application-main" data-commit-hovercards-enabled data-discussion-hovercards-enabled data-issue-and-pr-hovercards-enabled>
+      <main id="js-repo-pjax-container"><p style="padding:24px">Page content (inert behind the modal drawer).</p></main>
+    </div>
+
+    <footer class="footer pt-8 pb-6 f6 color-fg-muted p-responsive" role="contentinfo">
+      <!-- SITE footer (not part of the drawer). INFERRED simplified markup. -->
+      <p style="padding:24px">&copy; 2026 GitHub,&nbsp;Inc.</p>
+    </footer>
+  </div>
+
+  <!-- HEADER VARIANT B (SRC [ARCHIVE-2026-01] + [BUNDLE-2026-10] h8/2j chunks): fully React header (partial "global-nav-bar").
+       No react-partial-anchor and no aria-label="Open global navigation menu": the hamburger is a Primer IconButton with
+       aria-haspopup="dialog" whose name comes from a tooltip ("Open menu" in 2026-10, "Open Menu" in 2026-01).
+       It opens the SAME GlobalNavMenu Dialog. Behind flag pull_request_stacks_pancake_icon the icon is a pancake emoji. -->
+  <template id="variant-react-header">
+    <header role="banner" aria-label="Global navigation menu" class="GlobalNav styles-module__appHeader--NfDnF prc-Stack-Stack-UQ9k6" data-gap="none" data-direction="vertical" data-align="stretch" data-wrap="nowrap" data-justify="start" data-padding="none">
+      <div class="prc-Stack-Stack-UQ9k6" data-direction="horizontal" data-align="center" data-wrap="nowrap" data-justify="center" data-padding="none">
+        <div data-testid="top-nav-left" class="styles-module__left--jQ3Pi prc-Stack-Stack-UQ9k6" data-gap="condensed" data-direction="horizontal" data-align="stretch" data-wrap="nowrap" data-justify="start" data-padding="normal">
+          <div data-loading-wrapper="true">
+            <button data-component="IconButton" type="button" aria-haspopup="dialog" class="prc-Button-ButtonBase-9n-Xk styles-module__appHeaderButton--lIuw9 prc-Button-IconButton-fyge7" data-loading="false" data-no-visuals="true" data-size="medium" data-variant="invisible" aria-labelledby="_R_apb_"><svg aria-hidden="true" focusable="false" class="octicon octicon-three-bars" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path></svg></button>
+          </div>
+          <span class="prc-TooltipV2-Tooltip-tLeuB" data-direction="s" aria-hidden="true" id="_R_apb_" popover="auto">Open menu</span>
+        </div>
+      </div>
+    </header>
+  </template>
+
+  <!-- LEGACY DRAWER (<= 2025-09, ViewComponent + include-fragment). Static part SRC [SAMPLE-2025-09]; the Top repositories
+       fragment came from GET /_side-panels/global (HTML) on first open and was NOT captured -> that block is INFERRED.
+       Possibly still relevant for GitHub Enterprise Server. -->
+  <template id="legacy-drawer-2025-09">
+    <deferred-side-panel data-url="/_side-panels/global">
+      <include-fragment data-target="deferred-side-panel.fragment" data-view-component="true">
+        <button aria-label="Open global navigation menu" data-action="click:deferred-side-panel#loadPanel click:deferred-side-panel#panelOpened" data-show-dialog-id="dialog-legacy" id="dialog-show-dialog-legacy" type="button" data-view-component="true" class="Button Button--iconOnly Button--secondary Button--medium AppHeader-button p-0 color-fg-muted"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-three-bars Button-visual"><path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path></svg></button>
+        <dialog-helper>
+          <dialog open data-target="deferred-side-panel.panel" id="dialog-legacy" aria-modal="true" aria-labelledby="dialog-legacy-title" aria-describedby="dialog-legacy-description" data-view-component="true" class="Overlay Overlay-whenNarrow Overlay--size-small-portrait Overlay--motion-scaleFade Overlay--placement-left SidePanel Overlay--disableScroll">
+            <div data-view-component="true" class="Overlay-header">
+              <div class="Overlay-headerContentWrap">
+                <div class="Overlay-titleWrap"><h1 class="Overlay-title sr-only" id="dialog-legacy-title">Global navigation</h1></div>
+                <div class="Overlay-actionWrap"><button data-close-dialog-id="dialog-legacy" aria-label="Close" type="button" data-view-component="true" class="close-button Overlay-closeButton"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-x"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"></path></svg></button></div>
+              </div>
+            </div>
+            <scrollable-region data-labelled-by="dialog-legacy-title">
+              <div data-view-component="true" class="Overlay-body d-flex flex-column px-2">
+                <div data-view-component="true" class="d-flex flex-column mb-3">
+                  <nav aria-label="Site navigation" data-view-component="true" class="ActionList">
+                    <nav-list>
+                      <ul data-target="nav-list.topLevelList" data-view-component="true" class="ActionListWrap">
+                        <li data-item-id="" data-targets="nav-list.items" data-view-component="true" class="ActionListItem"><a data-hotkey="g d" href="/dashboard" data-view-component="true" class="ActionListContent ActionListContent--visual16"><span class="ActionListItem-visual ActionListItem-visual--leading"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-home"><path d="M0 0"></path></svg></span><span data-view-component="true" class="ActionListItem-label">Home</span></a></li>
+                        <!-- Issues, Pull requests, Projects, Discussions, Codespaces, Copilot ... (same pattern) -->
+                        <li role="presentation" aria-hidden="true" data-view-component="true" class="ActionList-sectionDivider"></li>
+                        <li data-item-id="" data-targets="nav-list.items" data-view-component="true" class="ActionListItem"><a href="/explore" data-view-component="true" class="ActionListContent ActionListContent--visual16"><span class="ActionListItem-visual ActionListItem-visual--leading"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-telescope"><path d="M0 0"></path></svg></span><span data-view-component="true" class="ActionListItem-label">Explore</span></a></li>
+                        <li data-item-id="" data-targets="nav-list.items" data-view-component="true" class="ActionListItem"><a href="/marketplace" data-view-component="true" class="ActionListContent ActionListContent--visual16"><span class="ActionListItem-visual ActionListItem-visual--leading"><svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-gift"><path d="M0 0"></path></svg></span><span data-view-component="true" class="ActionListItem-label">Marketplace</span></a></li>
+                      </ul>
+                    </nav-list>
+                  </nav>
+                  <!-- INFERRED (fragment not captured): the spinner below was replaced by the fetched fragment containing a
+                       "Top repositories" heading, a "Search for repositories" icon button, ActionList repo links
+                       (<a href="/owner/repo"> + <img class="avatar"> + label) and a "Show more" item. -->
+                  <div data-view-component="true" class="my-3 d-flex flex-justify-center height-full"><span data-view-component="true"><span class="sr-only">Loading</span></span></div>
+                </div>
+                <div data-view-component="true" class="flex-1"></div>
+                <!-- SRC [SAMPLE-2025-09]: legacy drawer footer -->
+                <div data-view-component="true" class="px-2">
+                  <p class="color-fg-subtle text-small text-light">&copy; 2025 GitHub, Inc.</p>
+                  <div data-view-component="true" class="d-flex flex-wrap text-small text-light">
+                    <a target="_blank" href="https://github.com/about" data-view-component="true" class="Link mr-2">About</a>
+                    <a target="_blank" href="https://github.blog" data-view-component="true" class="Link mr-2">Blog</a>
+                    <a target="_blank" href="https://docs.github.com/site-policy/github-terms/github-terms-of-service" data-view-component="true" class="Link mr-2">Terms</a>
+                    <a target="_blank" href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement" data-view-component="true" class="Link mr-2">Privacy</a>
+                    <a target="_blank" href="https://github.com/security" data-view-component="true" class="Link mr-2">Security</a>
+                    <a target="_blank" href="https://www.githubstatus.com/" data-view-component="true" class="Link mr-3">Status</a>
+                  </div>
+                </div>
+              </div>
+            </scrollable-region>
+          </dialog>
+        </dialog-helper>
+      </include-fragment>
+    </deferred-side-panel>
+  </template>
+</body>
+</html>
