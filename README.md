@@ -10,7 +10,7 @@ own sections that sync between your Chrome devices. Read-only, with no server.</
 <a href="https://chromewebstore.google.com/detail/github-repo-navigator/ejpgocgeebjkkaiocccnngjpkkjpbonc">Chrome Web Store</a> ·
 <a href="https://jd2005l.github.io/GitHubRepoNavigator/">Website</a> ·
 <a href="PRIVACY.md">Privacy</a> ·
-<a href="https://github.com/sponsors/JD2005L">Sponsor</a>
+<a href="https://paypal.me/jlevac84">Donate</a>
 </p>
 
 ![GitHub's ☰ menu with the Repo Navigator list: a filter box, a section and every other repository below it (sample data, dark theme)](docs/images/navigator-dark.png)
@@ -238,7 +238,7 @@ Bug reports, ideas and pull requests are welcome in
 For a setup problem, include your Chrome version and what the settings page shows.
 
 GitHub Repo Navigator is free with nothing held back. If it saves you time, you can
-[sponsor its upkeep](https://github.com/sponsors/JD2005L).
+[chip in toward its upkeep](https://paypal.me/jlevac84).
 
 More by the author: [Inbox Pilot](https://jd2005l.github.io/InboxPilot/) and
 [GitHub Actions Monitor](https://jd2005l.github.io/GithubActionsMonitor/).
