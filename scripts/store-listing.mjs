@@ -36,13 +36,11 @@ PRIVATE BY DESIGN
 SETUP (about three minutes, once)
 The extension signs in through a small GitHub App that you own, limited to read-only metadata. The settings page opens GitHub's form already filled in, tells you the one box to tick, then connects with a short code. More: ${SITE}`;
 
-const TEST_INSTRUCTIONS = `A GitHub account is needed (any free account works). No test credentials are required from us: the extension signs in through the reviewer's own GitHub account with read-only access.
-
-1. Install, then click the toolbar icon to open the settings page.
-2. Follow "Getting started": it opens GitHub's New GitHub App form already filled in. Tick "Enable Device Flow", click "Create GitHub App", and paste the Client ID back into the settings page.
-3. Click "Connect GitHub", enter the code shown at github.com/login/device, and click "Authorize".
-4. Install the app on the account with "All repositories" (the guide links straight to it).
-5. On github.com, open the ☰ menu (top-left) or the dashboard: the "Top repositories" list is replaced by the full list with sections. The first time, the list (and the settings page) asks "How do you want to start?": choose "Suggest sections" to see a preview (it can be undone).`;
+const TEST_INSTRUCTIONS = `Uses the reviewer's own GitHub account; no test account.
+1. Click the icon; "Getting started" opens a prefilled New GitHub App form: tick "Enable Device Flow", create it, paste the Client ID.
+2. "Connect GitHub", enter the code at github.com/login/device, Authorize; install the app on "All repositories".
+3. On the github.com dashboard, the full repo list with sections replaces "Top repositories".
+Full steps: https://github.com/JD2005L/GitHubRepoNavigator#setup-about-three-minutes-once`;
 
 export function storeListing(version) {
   return [
@@ -149,7 +147,7 @@ export function storeListing(version) {
     {
       tab: 'Test instructions',
       fields: [
-        { label: 'Test instructions', kind: 'text', limit: 5000, value: TEST_INSTRUCTIONS },
+        { label: 'Test instructions', kind: 'text', limit: 500, value: TEST_INSTRUCTIONS },
         { label: 'Username / Password', kind: 'info', value: '(leave empty: reviewers use their own GitHub account)' },
       ],
     },
