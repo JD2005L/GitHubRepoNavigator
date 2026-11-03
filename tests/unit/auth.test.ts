@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountPrefix, ACCOUNTS_KEY, AuthManager, IDENTITY_KEY, PENDING_KEY, TOKENS_KEY, CLIENT_ID_KEY } from '../../src/background/auth/authManager';
+import { ACCOUNT_APPS_KEY, accountPrefix, ACCOUNTS_KEY, AuthManager, IDENTITY_KEY, PENDING_KEY, TOKENS_KEY, CLIENT_ID_KEY, type StartOptions } from '../../src/background/auth/authManager';
 import { DeviceFlowError, POLL_MARGIN_MS, pollDeviceToken, requestDeviceCode, tokenSetFrom, type PendingFlow } from '../../src/background/auth/deviceFlow';
 import type { AuthState } from '../../src/shared/types';
 import { FakeArea, ManualTimers } from '../helpers/fakeStorage';
@@ -421,5 +421,100 @@ describe('AuthManager', () => {
     expect(h.states.at(-1)).toMatchObject({ kind: 'signed-out', clientIdConfigured: true });
     h.manager.syncedClientId(undefined); // cleared on another browser
     expect(h.states.at(-1)).toMatchObject({ kind: 'signed-out', clientIdConfigured: false });
+  });
+});
+
+describe('accounts with their own GitHub App', () => {
+  const WORK_APP = 'Iv23liWorkAppClient1';
+  const WORK = 2002;
+  const asWork = (h: Harness) => {
+    h.mock.login = 'jd-work_goa';
+    h.mock.userId = WORK;
+  };
+  /** Runs one device flow to the end, for whichever account the mock answers /user with. */
+  async function run(h: Harness, options: StartOptions, manager = h.manager): Promise<void> {
+    h.mock.deviceSteps = ['success'];
+    await manager.start(options);
+    await h.timers.advance(5000);
+  }
+
+  it('adds an account through its own app, keeps the first on the default one, and syncs only which app it uses', async () => {
+    const h = await harness();
+    await connect(h);
+    asWork(h);
+    await run(h, { mode: 'add', clientId: WORK_APP });
+    expect(h.mock.deviceCodeClientIds).toEqual([CLIENT, WORK_APP]);
+    expect(h.manager.account(ME)!.app).toBeNull();
+    expect(h.manager.account(WORK)!.app).toBe(WORK_APP);
+    expect(h.manager.ownApps()).toEqual([{ userId: WORK, clientId: WORK_APP }]);
+    expect(h.manager.clientId().value).toBe(CLIENT); // the default app is untouched
+    expect(h.sync.raw()[ACCOUNT_APPS_KEY]).toEqual({ [WORK]: WORK_APP });
+    expect(JSON.stringify(h.sync.raw())).not.toMatch(/jd-work|ghu_|ghr_/);
+    // Remembered after a restart; Reconnect uses each account's own app.
+    const restarted = await h.restart();
+    expect(restarted.account(WORK)!.app).toBe(WORK_APP);
+    await restarted.start({ mode: 'reconnect', userId: WORK });
+    expect(h.mock.deviceCodeClientIds.at(-1)).toBe(WORK_APP);
+    await restarted.start({ mode: 'reconnect', userId: ME });
+    expect(h.mock.deviceCodeClientIds.at(-1)).toBe(CLIENT);
+  });
+
+  it('records a chosen app that is the default one as the default, not as the account’s own', async () => {
+    const h = await harness();
+    asWork(h);
+    await run(h, { mode: 'add', clientId: CLIENT });
+    expect(h.manager.account(WORK)!.app).toBeNull();
+    expect(h.sync.raw()[ACCOUNT_APPS_KEY]).toBeUndefined();
+  });
+
+  it('adds nothing when the code was entered as an account that is already connected, and says so', async () => {
+    const h = await harness();
+    await connect(h);
+    await run(h, { mode: 'add', clientId: WORK_APP });
+    expect(h.manager.list()).toHaveLength(1);
+    expect(h.manager.account(ME)!.app).toBeNull();
+    expect(h.manager.state()).toMatchObject({ kind: 'signed-out', problem: { message: expect.stringMatching(/@jd2005l is already connected here/), restartable: true } });
+    expect(h.manager.state(ME).kind).toBe('signed-in');
+  });
+
+  it('never moves a connected account to another app because its code was entered for a different connection', async () => {
+    const h = await harness();
+    await connect(h);
+    asWork(h);
+    await run(h, { mode: 'add', clientId: WORK_APP });
+    const tokens = h.local.raw()[accountPrefix(WORK) + TOKENS_KEY];
+    // "Connect GitHub" through the default app, while github.com was signed in as the work account.
+    await run(h, {});
+    expect(h.manager.state()).toMatchObject({ problem: { message: expect.stringMatching(/@jd-work_goa, which uses a different GitHub App here/) } });
+    expect(h.manager.account(WORK)!.app).toBe(WORK_APP);
+    expect(h.local.raw()[accountPrefix(WORK) + TOKENS_KEY]).toEqual(tokens);
+    // Through its own app it simply gets fresh tokens.
+    await run(h, { mode: 'reconnect', userId: WORK });
+    expect(h.manager.state()).toMatchObject({ problem: null });
+    expect(h.manager.account(WORK)!.app).toBe(WORK_APP);
+  });
+
+  it('connects an account on another browser only through the app it uses on the others', async () => {
+    const h = await harness();
+    await connect(h);
+    asWork(h);
+    await run(h, { mode: 'add', clientId: WORK_APP });
+    const other = await harness(h.mock, h.timers, new FakeArea('local'), new FakeArea('session'), h.sync);
+    expect(other.manager.ownApps()).toEqual([{ userId: WORK, clientId: WORK_APP }]);
+    await run(other, {});
+    expect(other.manager.list()).toHaveLength(0);
+    expect(other.manager.state()).toMatchObject({ problem: { message: expect.stringMatching(/uses its own GitHub App on your other browsers/) } });
+    await run(other, { mode: 'add', clientId: WORK_APP });
+    expect(other.manager.account(WORK)!.app).toBe(WORK_APP);
+  });
+
+  it('refuses a malformed client ID before asking GitHub, and ignores malformed synced records', async () => {
+    const h = await harness();
+    expect(await h.manager.start({ mode: 'add', clientId: '0123456789abcdef0123456789abcdef01234567' })).toMatchObject({ kind: 'signed-out', problem: { restartable: false } });
+    expect(h.mock.deviceCodeClientIds).toEqual([]);
+    h.manager.syncedAccountApps({ [WORK]: WORK_APP, x: WORK_APP, 3003: 'secret', 4004: 7 });
+    expect(h.manager.ownApps()).toEqual([{ userId: WORK, clientId: WORK_APP }]);
+    h.manager.syncedAccountApps(undefined);
+    expect(h.manager.ownApps()).toEqual([]);
   });
 });

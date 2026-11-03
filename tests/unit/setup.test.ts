@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { Diagnostics } from '../../src/shared/messages';
 import type { InstallationSummary } from '../../src/shared/types';
-import { APP_DESCRIPTION, appFormFields, appSettingsUrl, clientIdProblem, defaultWizard, installUrl, newAppUrl, parseAppSlug, parseWizard, setupProgress, slugFor, verifySlug } from '../../src/options/setup';
+import {
+  APP_DESCRIPTION,
+  appFormFields,
+  appSettingsUrl,
+  clientIdProblem,
+  defaultWizard,
+  enterpriseCode,
+  installUrl,
+  isManagedLogin,
+  newAppUrl,
+  parseAppSlug,
+  parseWizard,
+  setupProgress,
+  slugFor,
+  startAdd,
+  verifySlug,
+} from '../../src/options/setup';
 
 const install = (over: Partial<InstallationSummary> = {}): InstallationSummary => ({
   id: 71,
@@ -13,14 +29,15 @@ const install = (over: Partial<InstallationSummary> = {}): InstallationSummary =
   ...over,
 });
 
-function diag(over: { clientId?: string; auth?: Diagnostics['auth']; installations?: InstallationSummary[]; fetchedAt?: number | null; refreshing?: boolean } = {}): Diagnostics {
+function diag(over: { clientId?: string; login?: string; app?: string; auth?: Diagnostics['auth']; installations?: InstallationSummary[]; fetchedAt?: number | null; refreshing?: boolean } = {}): Diagnostics {
   return {
     extensionVersion: '0.1.0',
     clientId: { value: over.clientId ?? 'Iv23liTest1234', source: 'options' },
     appSlug: '',
-    accounts: over.auth && over.auth.kind !== 'signed-in' ? [] : [{ userId: 1001, login: 'jd2005l', kind: 'signed-in' }],
+    accounts: over.auth && over.auth.kind !== 'signed-in' ? [] : [{ userId: 1001, login: over.login ?? 'jd2005l', kind: 'signed-in', app: over.app ?? null }],
+    ownApps: [],
     account: over.auth && over.auth.kind !== 'signed-in' ? null : 1001,
-    auth: over.auth ?? { kind: 'signed-in', login: 'jd2005l', expiresAt: null },
+    auth: over.auth ?? { kind: 'signed-in', login: over.login ?? 'jd2005l', expiresAt: null },
     connect: { kind: 'signed-out', clientIdConfigured: true, problem: null },
     inventory: {
       count: 9,
@@ -40,8 +57,12 @@ function diag(over: { clientId?: string; auth?: Diagnostics['auth']; installatio
 }
 
 describe('setupProgress', () => {
-  it('starts at creating the app when there is no client ID', () => {
-    expect(setupProgress(diag({ clientId: '' })).step).toBe('create');
+  it('starts at creating the app when there is no client ID and no account', () => {
+    expect(setupProgress(diag({ clientId: '', auth: { kind: 'signed-out', clientIdConfigured: false, problem: null } })).step).toBe('create');
+  });
+
+  it('needs no default app for an account that signs in through its own', () => {
+    expect(setupProgress(diag({ clientId: '', app: 'Iv23liOwnApp0001', installations: [install()] })).step).toBe('done');
   });
 
   it('asks to connect until signed in (signed out, mid code entry, or expired)', () => {
@@ -72,6 +93,27 @@ describe('setupProgress', () => {
 
   it('is done once the own account (matched case-insensitively) shares all repositories', () => {
     expect(setupProgress(diag({ installations: [install()] })).step).toBe('done');
+  });
+
+  it('never asks a managed account to install the app on itself: any installation it can see finishes setup', () => {
+    const managed = { login: 'james-levac_goa' };
+    expect(setupProgress(diag(managed))).toMatchObject({ step: 'install', own: null, checking: false });
+    expect(setupProgress(diag({ ...managed, fetchedAt: null })).checking).toBe(true);
+    expect(setupProgress(diag({ ...managed, installations: [install({ account: 'goa-org', accountType: 'Organization', repositorySelection: 'selected' })] })).step).toBe('done');
+    expect(setupProgress(diag({ ...managed, installations: [install({ account: 'goa-org', accountType: 'Organization', suspended: true })] })).step).toBe('install');
+  });
+});
+
+describe('managed accounts', () => {
+  it('are recognized by the underscore and enterprise short code GitHub gives them', () => {
+    expect(isManagedLogin('james-levac_goa')).toBe(true);
+    expect(isManagedLogin('mona_ACME1')).toBe(true);
+    expect(enterpriseCode('james-levac_goa')).toBe('goa');
+    // Ordinary logins cannot contain an underscore.
+    expect(isManagedLogin('JD2005L')).toBe(false);
+    expect(isManagedLogin('jd-work')).toBe(false);
+    expect(isManagedLogin('_goa')).toBe(false);
+    expect(isManagedLogin(null)).toBe(false);
   });
 });
 
@@ -127,6 +169,12 @@ describe('app addresses', () => {
     expect(prefilled.get('description')).toBe(APP_DESCRIPTION);
   });
 
+  it('tells a managed account that its app can only be for its enterprise', () => {
+    const where = (managed: boolean) => appFormFields(defaultWizard(() => 0.5), managed).find((f) => f.id === 'where')?.value;
+    expect(where(true)).toMatch(/^This enterprise\./);
+    expect(where(false)).toMatch(/^Any account/);
+  });
+
   it('links to the app settings and install pages', () => {
     const w = defaultWizard();
     expect(appSettingsUrl(w, 'nav')).toBe('https://github.com/settings/apps/nav');
@@ -154,10 +202,37 @@ describe('verifySlug', () => {
 describe('wizard state and client ID checks', () => {
   it('restores saved state and falls back safely on junk', () => {
     const fallback = defaultWizard(() => 0.5);
-    expect(parseWizard('{"owner":"org","org":"acme","name":"N","slug":"n","dismissed":true,"path":"existing"}', fallback)).toEqual({ owner: 'org', org: 'acme', name: 'N', slug: 'n', dismissed: true, path: 'existing' });
-    expect(parseWizard('{"owner":"x","slug":"Bad Slug","path":"sideways"}', fallback)).toEqual({ ...fallback, slug: '', path: null });
+    const saved = {
+      owner: 'org',
+      org: 'acme',
+      name: 'N',
+      slug: 'n',
+      slugs: { Iv23liAppOne0001: 'app-one', 'not a client id': 'x', Iv23liAppTwo0002: 'Bad Slug' },
+      hidden: [1001, 'x'],
+      path: 'existing',
+      add: { had: [1001], login: 'james-levac_goa', clientId: 'Iv23liGoaApp0001', separate: true, form: { owner: 'user', org: '', name: 'Repo Navigator goa' } },
+    };
+    expect(parseWizard(JSON.stringify(saved), fallback)).toEqual({ ...saved, slugs: { Iv23liAppOne0001: 'app-one' }, hidden: [1001], hiddenLegacy: false });
+    expect(parseWizard('{"owner":"x","slug":"Bad Slug","path":"sideways","add":{"login":"a b","clientId":"secret"}}', fallback, () => 0.5)).toEqual({
+      ...fallback,
+      slug: '',
+      path: null,
+      add: { had: [], login: '', clientId: '', separate: false, form: { owner: 'user', org: '', name: fallback.name } },
+    });
     expect(parseWizard('not json', fallback)).toEqual(fallback);
     expect(parseWizard(null, fallback)).toEqual(fallback);
+  });
+
+  it('keeps an older version’s one "hide the guide" switch, to apply to the first account only', () => {
+    expect(parseWizard('{"dismissed":true}', defaultWizard(() => 0.5))).toMatchObject({ hidden: [], hiddenLegacy: true });
+  });
+
+  it('gives an added account’s new app a fresh name, never the first app’s (GitHub already has that one)', () => {
+    const first = defaultWizard(() => 0.25);
+    const add = startAdd([1001], 'james-levac_goa', () => 0.75);
+    expect(add).toMatchObject({ had: [1001], login: 'james-levac_goa', clientId: '', separate: false });
+    expect(add.form.name).toMatch(/^Repo Navigator \w+$/);
+    expect(add.form.name).not.toBe(first.name);
   });
 
   it('explains the common wrong pastes', () => {

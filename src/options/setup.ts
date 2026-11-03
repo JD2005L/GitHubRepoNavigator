@@ -1,5 +1,5 @@
 import type { Diagnostics } from '../shared/messages';
-import type { InstallationSummary } from '../shared/types';
+import { CLIENT_ID_RE, type InstallationSummary } from '../shared/types';
 
 /**
  * Guided setup: everything the Options page needs to walk someone from "no GitHub App" to "every repository
@@ -13,43 +13,118 @@ export const orgAppsUrl = (org: string): string => `https://github.com/organizat
 /** Public homepage (pre-filled as the GitHub App's homepage). */
 export const PROJECT_URL = 'https://levac.net/repo-navigator/';
 
-/** Remembered in the Options page's localStorage (per device), so a reload or a trip to GitHub loses nothing. */
-export interface Wizard {
+/** What GitHub's new-app form is opened with: who owns the app, and its name. */
+export interface AppForm {
   owner: 'user' | 'org';
   org: string;
   name: string;
-  /** The app's slug once confirmed against GitHub (its client ID matched), or typed in by the user. */
+}
+
+/**
+ * Adding another GitHub account: which GitHub App it connects through. Its own form, so making a second app never
+ * overwrites the first app's name (which GitHub already has taken).
+ */
+export interface AddAccount {
+  /** Accounts (user IDs) connected when it started: the first one beyond these is the one added. */
+  had: number[];
+  /** The account a GitHub page asked to connect ("Connect @login too"), or '' when not known. */
+  login: string;
+  /** The chosen app's client ID ('' until chosen). */
+  clientId: string;
+  /** Making (or pasting) a separate app for this account rather than reusing one. */
+  separate: boolean;
+  form: AppForm;
+}
+
+/** Remembered in the Options page's localStorage (per device), so a reload or a trip to GitHub loses nothing. */
+export interface Wizard extends AppForm {
+  /** Before 1.4: the one app's slug, confirmed or typed in. Still tried for any app; its client ID decides. */
   slug: string;
-  /** The user finished (or skipped) the guide; it stays hidden while setup still works. */
-  dismissed: boolean;
+  /** Each app's slug, by client ID, once confirmed against GitHub (its client ID matched). */
+  slugs: Record<string, string>;
+  /** Accounts (user IDs) whose guide was finished or skipped; it stays hidden while their setup still works. */
+  hidden: number[];
+  /** Hidden by a version before 1.4, whose one switch meant the account connected then: the first one. */
+  hiddenLegacy: boolean;
   /** First step: create a new GitHub App, or reuse the one already set up in another browser (null: not chosen). */
   path: 'new' | 'existing' | null;
+  /** Adding another account (null: not). */
+  add: AddAccount | null;
 }
 
 export const WIZARD_KEY = 'grn.setupWizard';
 export const ORG_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,99})$/;
 
-export function defaultWizard(random: () => number = Math.random): Wizard {
-  // GitHub App names are unique across all of GitHub, so the default carries a random suffix.
-  return { owner: 'user', org: '', name: `Repo Navigator ${random().toString(36).slice(2, 7)}`, slug: '', dismissed: false, path: null };
+/** GitHub App names are unique across all of GitHub, so a suggested name carries a random suffix. */
+export function suggestedAppName(random: () => number = Math.random): string {
+  return `Repo Navigator ${random().toString(36).slice(2, 7)}`;
 }
 
-export function parseWizard(raw: string | null, fallback: Wizard = defaultWizard()): Wizard {
+export function defaultWizard(random: () => number = Math.random): Wizard {
+  return { owner: 'user', org: '', name: suggestedAppName(random), slug: '', slugs: {}, hidden: [], hiddenLegacy: false, path: null, add: null };
+}
+
+/** Starts adding an account; `login` when a GitHub page asked for that one. */
+export function startAdd(had: number[], login = '', random: () => number = Math.random): AddAccount {
+  return { had, login, clientId: '', separate: false, form: { owner: 'user', org: '', name: suggestedAppName(random) } };
+}
+
+const ids = (value: unknown): number[] => (Array.isArray(value) ? value.filter((x): x is number => typeof x === 'number' && Number.isSafeInteger(x)) : []);
+
+function parseForm(value: unknown, fallbackName: string): AppForm {
+  const form = (value && typeof value === 'object' ? value : {}) as Partial<AppForm>;
+  return {
+    owner: form.owner === 'org' ? 'org' : 'user',
+    org: typeof form.org === 'string' ? form.org : '',
+    name: typeof form.name === 'string' && form.name.trim() ? form.name : fallbackName,
+  };
+}
+
+function parseAdd(value: unknown, random: () => number): AddAccount | null {
+  if (!value || typeof value !== 'object') return null;
+  const add = value as Partial<AddAccount>;
+  return {
+    had: ids(add.had),
+    login: typeof add.login === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(add.login) ? add.login : '',
+    clientId: typeof add.clientId === 'string' && CLIENT_ID_RE.test(add.clientId) ? add.clientId : '',
+    separate: add.separate === true,
+    form: parseForm(add.form, suggestedAppName(random)),
+  };
+}
+
+export function parseWizard(raw: string | null, fallback: Wizard = defaultWizard(), random: () => number = Math.random): Wizard {
   try {
-    const saved = JSON.parse(raw ?? 'null') as Partial<Wizard> | null;
+    const saved = JSON.parse(raw ?? 'null') as (Partial<Wizard> & { dismissed?: unknown }) | null;
     if (!saved || typeof saved !== 'object') return fallback;
+    const slugs = Object.fromEntries(
+      Object.entries(saved.slugs && typeof saved.slugs === 'object' ? saved.slugs : {}).filter(([clientId, slug]) => CLIENT_ID_RE.test(clientId) && typeof slug === 'string' && SLUG_RE.test(slug)),
+    );
     return {
-      owner: saved.owner === 'org' ? 'org' : 'user',
-      org: typeof saved.org === 'string' ? saved.org : '',
-      name: typeof saved.name === 'string' && saved.name.trim() ? saved.name : fallback.name,
+      ...parseForm(saved, fallback.name),
       slug: typeof saved.slug === 'string' && SLUG_RE.test(saved.slug) ? saved.slug : '',
-      dismissed: saved.dismissed === true,
+      slugs,
+      hidden: ids(saved.hidden),
+      hiddenLegacy: saved.hiddenLegacy === true || saved.dismissed === true,
       path: saved.path === 'new' || saved.path === 'existing' ? saved.path : null,
+      add: parseAdd(saved.add, random),
     };
   } catch {
     return fallback;
   }
+}
+
+/**
+ * A managed account (GitHub Enterprise Managed Users): its login is the person's name, an underscore and the
+ * enterprise's short code, like mona-lisa_acme. Ordinary GitHub logins cannot contain an underscore.
+ */
+export function isManagedLogin(login: string | null | undefined): boolean {
+  return !!login && /^[A-Za-z0-9-]+_[A-Za-z0-9]+$/.test(login);
+}
+
+/** A managed account's enterprise short code ("acme" for mona-lisa_acme). */
+export function enterpriseCode(login: string): string {
+  return login.slice(login.lastIndexOf('_') + 1);
 }
 
 /** GitHub's slug for an app name: lowercase, every run of other characters becomes one hyphen. */
@@ -105,7 +180,7 @@ export interface AppFormField {
  * lists every field rather than trusting the pre-fill.
  * https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app
  */
-export function appFormFields(w: Wizard): AppFormField[] {
+export function appFormFields(w: AppForm, managed = false): AppFormField[] {
   return [
     { id: 'name', label: 'GitHub App name', value: 'Required. Any name nobody else on GitHub uses; this one has a random ending for that reason.', copy: w.name.trim() },
     { id: 'description', label: 'Description', value: 'Optional. Leave it empty or write anything; people see it when they install the app.' },
@@ -118,7 +193,9 @@ export function appFormFields(w: Wizard): AppFormField[] {
     { id: 'webhook', label: 'Webhook → Active', value: 'Uncheck it. Webhook URL and Secret then disappear: there is no server to send events to.' },
     { id: 'permissions', label: 'Permissions → Repository permissions → Metadata', value: 'Read-only. Leave every other repository, organization and account permission at No access.' },
     { id: 'events', label: 'Subscribe to events', value: 'Leave every box unchecked.' },
-    { id: 'where', label: 'Where can this GitHub App be installed?', value: 'Any account, so it can also be installed on organizations you belong to. This does not share your data with anyone.' },
+    managed
+      ? { id: 'where', label: 'Where can this GitHub App be installed?', value: 'This enterprise. For a managed account it is the only choice GitHub offers, and it lets the app go on the enterprise’s organizations.' }
+      : { id: 'where', label: 'Where can this GitHub App be installed?', value: 'Any account, so it can also be installed on organizations you belong to. This does not share your data with anyone.' },
   ];
 }
 
@@ -127,7 +204,7 @@ export function appFormFields(w: Wizard): AppFormField[] {
  * Device Flow is the one required setting it cannot pre-fill.
  * https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-using-url-parameters
  */
-export function newAppUrl(w: Wizard): string {
+export function newAppUrl(w: AppForm): string {
   const base = w.owner === 'org' ? `https://github.com/organizations/${encodeURIComponent(w.org.trim())}/settings/apps/new` : NEW_APP_URL;
   const url = new URL(base);
   url.searchParams.set('name', w.name.trim());
@@ -141,7 +218,7 @@ export function newAppUrl(w: Wizard): string {
 }
 
 /** Where the app's owner manages it (Device Flow checkbox, client ID). */
-export function appSettingsUrl(w: Wizard, slug: string): string {
+export function appSettingsUrl(w: AppForm, slug: string): string {
   const base = w.owner === 'org' && ORG_RE.test(w.org.trim()) ? `https://github.com/organizations/${encodeURIComponent(w.org.trim())}/settings/apps` : 'https://github.com/settings/apps';
   return slug ? `${base}/${encodeURIComponent(slug)}` : base;
 }
@@ -185,15 +262,21 @@ export interface SetupProgress {
 }
 
 /**
- * Where setup stands, derived only from state the extension can verify:
- * no client ID → create the app; not signed in → connect; app not installed on the user's own account with
- * All repositories → install; otherwise done.
+ * Where setup stands for the account the page shows, derived only from state the extension can verify:
+ * no account and no client ID → create the app; not signed in → connect; app not installed on the user's own
+ * account with All repositories → install; otherwise done. A managed account cannot have the app on itself
+ * (GitHub does not allow it), so for one any installation it can see (an organization, or chosen repositories)
+ * finishes setup.
  */
 export function setupProgress(d: Diagnostics): SetupProgress {
-  if (!d.clientId.value) return { step: 'create', own: null, checking: false };
+  if (d.account === null && !d.clientId.value) return { step: 'create', own: null, checking: false };
   if (d.auth.kind !== 'signed-in') return { step: 'connect', own: null, checking: false };
   const login = d.auth.login?.toLowerCase() ?? null;
   const live = d.inventory.installations.filter((i) => !i.suspended);
+  if (isManagedLogin(login)) {
+    if (live.length) return { step: 'done', own: null, checking: false };
+    return { step: 'install', own: null, checking: d.inventory.fetchedAt === null || d.inventory.status.kind === 'refreshing' };
+  }
   const own = (login ? live.find((i) => i.account.toLowerCase() === login) : live[0]) ?? null;
   const checking = d.inventory.fetchedAt === null || (d.inventory.status.kind === 'refreshing' && !own);
   if (!own || own.repositorySelection !== 'all') return { step: 'install', own, checking };

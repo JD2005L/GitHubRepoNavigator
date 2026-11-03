@@ -63,6 +63,8 @@ export class MockGitHub {
   /** Tamper with Link headers to prove the client defends itself. */
   linkMode: 'normal' | 'foreign-host' | 'loop' = 'normal';
   deviceSteps: DeviceStep[] = ['pending', 'success'];
+  /** The client ID of every device-code request, in order: which GitHub App each sign-in went through. */
+  deviceCodeClientIds: string[] = [];
   deviceCodeRequests = 0;
   tokenRequests: Record<string, string>[] = [];
   refreshAccepted = false;
@@ -187,6 +189,7 @@ export class MockGitHub {
     if (path === '/login/device/code') {
       this.deviceCodeRequests++;
       if (!form.get('client_id')) return this.json(400, { error: 'incorrect_client_credentials' });
+      this.deviceCodeClientIds.push(form.get('client_id')!);
       return this.json(200, { device_code: `dc_${this.deviceCodeRequests}`, user_code: 'WDJB-MJHT', verification_uri: 'https://github.com/login/device', expires_in: 900, interval: 1 });
     }
     if (path === '/login/oauth/access_token') {

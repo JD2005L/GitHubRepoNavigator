@@ -4,14 +4,16 @@ import { SYNC_TOTAL_QUOTA } from '../shared/layout/codec';
 import type { LayoutOp } from '../shared/layout/model';
 import { suggestSections, type SuggestedSection } from '../shared/layout/suggest';
 import { chunkOps, exportSections, opsForPlan, parseSectionsFile, planImport, planSections, type PlanSection } from '../shared/layout/transfer';
-import { isBroadcast, OPTIONS_TABS, type Diagnostics, type NavState, type OptionsTab, type Request, type Response } from '../shared/messages';
-import type { AuthState, RepoHint, RepoId } from '../shared/types';
+import { isBroadcast, OPTIONS_TABS, type AccountSummary, type Diagnostics, type NavState, type OptionsTab, type Request, type Response } from '../shared/messages';
+import { CLIENT_ID_RE, type AuthState, type RepoHint, type RepoId } from '../shared/types';
 import {
   appFormFields,
   appSettingsUrl,
   clientIdProblem,
   defaultWizard,
+  enterpriseCode,
   installUrl,
+  isManagedLogin,
   MY_APPS_URL,
   orgAppsUrl,
   newAppUrl,
@@ -21,8 +23,11 @@ import {
   parseWizard,
   setupProgress,
   slugFor,
+  startAdd,
   verifySlug,
   WIZARD_KEY,
+  type AddAccount,
+  type AppForm,
   type AppFormField,
   type SetupProgress,
   type SetupStep,
@@ -42,14 +47,19 @@ let siteAccess = true;
 let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
 const wizard: Wizard = loadWizard();
-/** The app slug confirmed for the configured client ID (null: none of the guesses matched). */
-let slugCheck: { clientId: string; slug: string | null; pending: boolean } | null = null;
+/** Asking GitHub for each app's slug, by client ID (slug null: none of the guesses matched). Found ones go to wizard.slugs. */
+const slugChecks = new Map<string, { slug: string | null; pending: boolean }>();
 let lastAutoCheck = 0;
 /**
  * The GitHub account this page shows (its repositories, sections and setup), by login: from the navigator that
  * opened it (?account=), or picked here. Undefined: the first connected account.
  */
 let selectedAccount: string | undefined = new URLSearchParams(location.search).get('account') || undefined;
+/**
+ * The account a GitHub page asked for ("Connect @login too" opens this page with ?account=login). Not connected
+ * yet, it is added instead of another account being shown in its place. Only the first load asks.
+ */
+let requestedAccount: string | undefined = selectedAccount;
 
 /** The page is split into tabs instead of one long scroll. */
 const TABS: { id: OptionsTab; label: string }[] = [
@@ -71,7 +81,7 @@ function tabFromHash(): OptionsTab | null {
 
 /** Unfinished setup always opens on Setup; afterwards the last tab used. */
 function defaultTab(d: Diagnostics): OptionsTab {
-  if (setupProgress(d).step !== 'done') return 'setup';
+  if (wizard.add || setupProgress(d).step !== 'done') return 'setup';
   try {
     const saved = localStorage.getItem(TAB_KEY);
     return OPTIONS_TABS.find((t) => t === saved) ?? 'setup';
@@ -114,17 +124,34 @@ function saveWizard(): void {
   }
 }
 
-/** The app's slug: from the build, or confirmed against GitHub for the client ID pasted here. */
-function currentSlug(d: Diagnostics): string {
-  return d.appSlug || (slugCheck?.clientId === d.clientId.value ? (slugCheck.slug ?? '') : '');
+/** The account this page shows (null: none is connected). */
+function shownAccount(d: Diagnostics): AccountSummary | null {
+  return d.accounts.find((a) => a.userId === d.account) ?? null;
 }
 
-/** Finds the app's slug by asking GitHub which of the likely slugs has the configured client ID. */
-async function resolveSlug(d: Diagnostics, extra: string[] = []): Promise<void> {
-  const clientId = d.clientId.value;
-  if (!clientId || d.appSlug) return;
-  slugCheck = { clientId, slug: null, pending: true };
-  const candidates = [...new Set([...extra, wizard.slug, slugFor(wizard.name)].filter(Boolean))];
+/** The GitHub App the shown account signs in through: its own, or the default one. */
+function appOf(d: Diagnostics): string {
+  return shownAccount(d)?.app ?? d.clientId.value;
+}
+
+/** An app's slug: from the build (for the build's own app), or confirmed against GitHub for its client ID. */
+function slugOf(d: Diagnostics, clientId: string): string {
+  if (!clientId) return '';
+  if (d.appSlug && d.clientId.source === 'build' && clientId === d.clientId.value) return d.appSlug;
+  return wizard.slugs[clientId] ?? slugChecks.get(clientId)?.slug ?? '';
+}
+
+/** The shown account's app's slug. */
+function currentSlug(d: Diagnostics): string {
+  return slugOf(d, appOf(d));
+}
+
+/** Finds an app's slug by asking GitHub which of the likely slugs (from names typed here, or `extra`) has its client ID. */
+async function resolveSlug(d: Diagnostics, clientId: string, extra: string[] = []): Promise<void> {
+  if (!clientId) return;
+  slugChecks.set(clientId, { slug: null, pending: true });
+  const named = [wizard.name, wizard.add?.form.name ?? ''].map(slugFor);
+  const candidates = [...new Set([...extra, wizard.slug, ...named].filter(Boolean))];
   let found: string | null = null;
   for (const candidate of candidates) {
     if (await verifySlug(candidate, clientId, CONFIG.apiBase)) {
@@ -132,13 +159,42 @@ async function resolveSlug(d: Diagnostics, extra: string[] = []): Promise<void> 
       break;
     }
   }
-  if (diagnostics?.clientId.value !== clientId) return; // changed while we were asking
-  slugCheck = { clientId, slug: found, pending: false };
-  if (found && wizard.slug !== found) {
-    wizard.slug = found;
+  slugChecks.set(clientId, { slug: found, pending: false });
+  if (found && wizard.slugs[clientId] !== found) {
+    wizard.slugs[clientId] = found;
     saveWizard();
   }
   render();
+}
+
+/**
+ * Brings the guide's saved state up to date with the accounts connected: an older version's "hide the guide" goes to
+ * the first account, and adding an account ends once it appears, showing that account. True: the shown account changed.
+ */
+function settleSetup(d: Diagnostics): boolean {
+  if (wizard.hiddenLegacy) {
+    wizard.hiddenLegacy = false;
+    const first = d.accounts[0];
+    if (first && !wizard.hidden.includes(first.userId)) wizard.hidden.push(first.userId);
+    saveWizard();
+  }
+  const add = wizard.add;
+  if (!add) return false;
+  if (!d.accounts.length && add.had.length) {
+    // Every account was disconnected meanwhile: this is a first setup now.
+    wizard.add = null;
+    saveWizard();
+    return false;
+  }
+  const added = d.accounts.find((a) => !add.had.includes(a.userId));
+  if (!added) return false;
+  wizard.add = null;
+  saveWizard();
+  message = { text: `Connected ${added.login ? `@${added.login}` : 'the account'}. This page now shows it.`, kind: 'ok' };
+  if (add.clientId && !slugOf(d, add.clientId)) void resolveSlug(d, add.clientId, [slugFor(add.form.name)]);
+  if (!added.login || added.login === selectedAccount) return false;
+  selectAccount(added.login);
+  return true;
 }
 
 async function send<T>(request: Request): Promise<T> {
@@ -157,10 +213,18 @@ async function reload(): Promise<void> {
     diagnostics = await send<Diagnostics>({ type: 'diagnostics/get' });
     const known = diagnostics.accounts.some((a) => a.login?.toLowerCase() === selectedAccount?.toLowerCase());
     if (selectedAccount && !known && diagnostics.accounts.length) {
-      // That account is not connected here (or was just disconnected): show the first one instead.
+      // A GitHub page asked for an account that is not connected here: add it. Otherwise it was just disconnected.
+      // Either way, show the first account meanwhile.
+      if (requestedAccount && !wizard.add) {
+        wizard.add = startAdd(diagnostics.accounts.map((a) => a.userId), requestedAccount);
+        saveWizard();
+        activeTab = 'setup';
+      }
       selectAccount(undefined);
       diagnostics = await send<Diagnostics>({ type: 'diagnostics/get' });
     }
+    requestedAccount = undefined;
+    if (settleSetup(diagnostics)) diagnostics = await send<Diagnostics>({ type: 'diagnostics/get' });
   } catch (error) {
     message = { text: error instanceof Error ? error.message : String(error), kind: 'bad' };
   }
@@ -171,7 +235,11 @@ async function reload(): Promise<void> {
     history.replaceState(null, '', '#organize');
     void startSuggest(d);
   }
-  if (d?.clientId.value && !d.appSlug && slugCheck?.clientId !== d.clientId.value) void resolveSlug(d);
+  if (d) {
+    for (const clientId of new Set([appOf(d), wizard.add?.clientId ?? ''])) {
+      if (clientId && !slugOf(d, clientId) && !slugChecks.has(clientId)) void resolveSlug(d, clientId);
+    }
+  }
 }
 
 function selectAccount(login: string | undefined): void {
@@ -262,7 +330,8 @@ function plural(n: number, one: string, many = `${one}s`): string {
 }
 
 /** The device-flow code screen, shared by the setup guide and the connection card. */
-function authorizingBody(d: Diagnostics, auth: Extract<AuthState, { kind: 'authorizing' }>): HTMLElement[] {
+/** `clientId`: the app being connected through (default: the shown account's). */
+function authorizingBody(d: Diagnostics, auth: Extract<AuthState, { kind: 'authorizing' }>, clientId = appOf(d)): HTMLElement[] {
   const code = h('span', { className: 'code', 'aria-label': `Code ${auth.userCode.split('').join(' ')}` }, auth.userCode);
   const timer = h('span', { className: 'muted', id: 'countdown' }, `Code expires in ${countdown(auth.expiresAt)}.`);
   const copy = button('Copy code', () => {
@@ -273,7 +342,7 @@ function authorizingBody(d: Diagnostics, auth: Extract<AuthState, { kind: 'autho
       () => undefined,
     );
   });
-  const slug = currentSlug(d);
+  const slug = slugOf(d, clientId);
   return [
     h('p', {}, 'Enter this code on GitHub to finish connecting:'),
     h('div', { className: 'row' }, code),
@@ -301,7 +370,9 @@ function authorizingBody(d: Diagnostics, auth: Extract<AuthState, { kind: 'autho
 }
 
 /** Shown under a sign-in problem that needs a change on GitHub rather than another try. */
-function problemFix(d: Diagnostics): HTMLElement {
+/** `adding`: the app chosen while adding an account, which is changed there rather than under Advanced. */
+function problemFix(d: Diagnostics, adding?: AddAccount): HTMLElement {
+  const clientId = adding ? adding.clientId : appOf(d);
   return h(
     'div',
     { className: 'fix' },
@@ -309,8 +380,16 @@ function problemFix(d: Diagnostics): HTMLElement {
     h(
       'ol',
       { className: 'substeps' },
-      h('li', {}, 'Open ', link('your GitHub App’s settings', appSettingsUrl(wizard, currentSlug(d))), '. If you see a list of apps, click yours.'),
-      h('li', {}, 'Check that the ', h('strong', {}, 'Client ID'), ' near the top is exactly ', h('code', {}, d.clientId.value || '(none)'), '. If not, paste the right one under Advanced at the bottom of this page.'),
+      h('li', {}, 'Open ', link('your GitHub App’s settings', appSettingsUrl(adding ? adding.form : wizard, slugOf(d, clientId))), '. If you see a list of apps, click yours.'),
+      h(
+        'li',
+        {},
+        'Check that the ',
+        h('strong', {}, 'Client ID'),
+        ' near the top is exactly ',
+        h('code', {}, clientId || '(none)'),
+        adding ? '. If not, click Change above and pick or paste the right one.' : '. If not, paste the right one under Advanced at the bottom of this page.',
+      ),
       h('li', {}, 'Scroll down to ', h('strong', {}, 'Identifying and authorizing users'), ', check ', h('strong', {}, 'Enable Device Flow'), ' and click ', h('strong', {}, 'Save changes'), ' at the bottom.'),
       h('li', {}, 'Come back here and click ', h('strong', {}, 'Connect GitHub'), ' again.'),
     ),
@@ -325,34 +404,47 @@ function authCard(d: Diagnostics): HTMLElement {
       if (confirm(`Disconnect ${who} on this device? Its sections stay synced; its cached repository list on this device is removed.`)) void act({ type: 'auth/signout', account: account.login ?? undefined }, `Disconnected ${who}.`);
     });
     const renews = account.kind === 'signed-in' && d.account === account.userId && d.auth.kind === 'signed-in' && d.auth.expiresAt ? ' The authorization renews itself automatically.' : '';
+    const ownSlug = account.app ? slugOf(d, account.app) : '';
+    const ownApp = account.app ? ` Signs in through its own GitHub App${ownSlug ? ` “${ownSlug}”` : ''}.` : '';
+    const reconnect = button(`Reconnect ${who}`, () => void act({ type: 'auth/start', mode: 'reconnect', account: account.login ?? undefined }), 'primary');
     card.append(
       h(
         'div',
         { className: 'account-row' },
-        h('p', {}, account.kind === 'signed-in' ? h('span', { className: 'ok' }, 'Connected') : h('span', { className: 'bad' }, 'Authorization expired'), account.login ? ` as @${account.login}.` : '.', account.kind === 'expired' ? ' Its saved list is still shown in the menu.' : renews),
-        h('div', { className: 'row' }, ...(account.kind === 'expired' && d.connect.kind !== 'authorizing' ? [button(`Reconnect ${who}`, () => void act({ type: 'auth/start' }), 'primary')] : []), disconnect),
+        h(
+          'p',
+          {},
+          account.kind === 'signed-in' ? h('span', { className: 'ok' }, 'Connected') : h('span', { className: 'bad' }, 'Authorization expired'),
+          account.login ? ` as @${account.login}.` : '.',
+          account.kind === 'expired' ? ' Its saved list is still shown in the menu.' : renews,
+          ownApp,
+        ),
+        h('div', { className: 'row' }, ...(account.kind === 'expired' && d.connect.kind !== 'authorizing' ? [reconnect] : []), disconnect),
       ),
     );
   }
   const connect = d.connect;
-  if (connect.kind === 'authorizing') {
-    card.append(...authorizingBody(d, connect));
-  } else if (!d.accounts.length) {
-    card.append(
-      h('p', {}, 'Connect read-only access so the navigator can list every repository you can reach. GitHub will show a short code to confirm.'),
-      h('div', { className: 'row' }, button('Connect GitHub', () => void act({ type: 'auth/start' }), 'primary')),
-    );
-  } else {
-    card.append(
-      h('div', { className: 'row' }, button('Connect another account', () => void act({ type: 'auth/start' })), link('Revoke on GitHub', REVOKE_URL, 'button')),
-      h(
-        'p',
-        { className: 'muted' },
-        'Use more than one GitHub account? Connect each one. The navigator shows the repositories and sections of the account each GitHub page is signed in as. GitHub connects the account you are signed in as on github.com, so switch to it there first.',
-      ),
-    );
+  // While an account is being added, its guide shows the code and any problem.
+  if (!wizard.add) {
+    if (connect.kind === 'authorizing') {
+      card.append(...authorizingBody(d, connect));
+    } else if (!d.accounts.length) {
+      card.append(
+        h('p', {}, 'Connect read-only access so the navigator can list every repository you can reach. GitHub will show a short code to confirm.'),
+        h('div', { className: 'row' }, button('Connect GitHub', () => void act({ type: 'auth/start' }), 'primary')),
+      );
+    } else {
+      card.append(
+        h('div', { className: 'row' }, button('Add another account', () => beginAdd(d)), link('Revoke on GitHub', REVOKE_URL, 'button')),
+        h(
+          'p',
+          { className: 'muted' },
+          'Use more than one GitHub account, such as a personal one and a work one? Add each one; a guide walks through it. The navigator shows the repositories and sections of the account each GitHub page is signed in as.',
+        ),
+      );
+    }
+    if (connect.kind === 'signed-out' && connect.problem) card.append(h('p', { className: 'notice', role: 'alert' }, connect.problem.message), ...(connect.problem.restartable ? [] : [problemFix(d)]));
   }
-  if (connect.kind === 'signed-out' && connect.problem) card.append(h('p', { className: 'notice', role: 'alert' }, connect.problem.message), ...(connect.problem.restartable ? [] : [problemFix(d)]));
   if (d.accounts.length) card.append(h('p', { className: 'muted' }, 'Each Chrome device connects separately; access tokens never leave this device.'));
   return card;
 }
@@ -372,8 +464,11 @@ const STAGES: { step: SetupStep; title: string }[] = [
 function setupCard(d: Diagnostics): HTMLElement | null {
   const progress = setupProgress(d);
   const current = STAGES.findIndex((s) => s.step === progress.step);
-  if (wizard.dismissed && (progress.step === 'done' || progress.step === 'install')) return null;
+  if (isHidden(d) && (progress.step === 'done' || progress.step === 'install')) return null;
   const finished = progress.step === 'done';
+  // With several accounts, say whose setup this is.
+  const shownLogin = d.accounts.length > 1 ? shownAccount(d)?.login : null;
+  const whose = shownLogin ? ` with @${shownLogin}` : '';
   const items = STAGES.map((stage, index) => {
     const state = index < current ? 'done' : index === current ? 'current' : 'todo';
     const title = stage.step === 'create' && wizard.path === 'existing' && state !== 'done' ? 'Use your existing GitHub App' : stage.title;
@@ -385,7 +480,7 @@ function setupCard(d: Diagnostics): HTMLElement | null {
   return h(
     'section',
     { className: 'card setup', id: 'setup', 'aria-labelledby': 'setup-title' },
-    h('h2', { id: 'setup-title' }, finished ? 'You’re all set' : 'Getting started'),
+    h('h2', { id: 'setup-title' }, finished ? `You’re all set${whose}` : `Getting started${whose}`),
     h('p', { className: 'muted' }, finished ? 'Every step is done. Here is where to find everything.' : `Step ${current + 1} of ${STAGES.length}. ${current === 0 && wizard.path === null ? 'Setting up for the first time takes about three minutes; adding another browser takes under a minute.' : current === 0 && wizard.path === 'existing' ? 'Adding another browser takes under a minute.' : 'This page checks each step for you, so just follow along.'}`),
     h('ol', { className: 'wizard' }, ...items),
   );
@@ -393,12 +488,18 @@ function setupCard(d: Diagnostics): HTMLElement | null {
 
 function stageSummary(d: Diagnostics, step: SetupStep): string {
   switch (step) {
-    case 'create':
-      return `Client ID ${d.clientId.value} saved${currentSlug(d) ? ` (app “${currentSlug(d)}”)` : ''}.`;
+    case 'create': {
+      const slug = currentSlug(d);
+      return shownAccount(d)?.app
+        ? `Signs in through its own GitHub App${slug ? ` “${slug}”` : ''} (client ID ${appOf(d)}).`
+        : `Client ID ${d.clientId.value} saved${slug ? ` (app “${slug}”)` : ''}.`;
+    }
     case 'connect':
       return d.auth.kind === 'signed-in' && d.auth.login ? `Signed in as @${d.auth.login}.` : 'Signed in.';
     case 'install':
-      return 'Installed on your account with All repositories.';
+      return isManagedLogin(shownAccount(d)?.login)
+        ? `Installed on ${d.inventory.installations.filter((i) => !i.suspended).map((i) => i.account).join(', ')}.`
+        : 'Installed on your account with All repositories.';
     case 'done':
       return '';
   }
@@ -424,6 +525,196 @@ function choosePath(path: Wizard['path']): void {
   render();
 }
 
+/** The guide was finished or skipped for the shown account. */
+function isHidden(d: Diagnostics): boolean {
+  return d.account !== null && wizard.hidden.includes(d.account);
+}
+
+/** Finishes (or skips) the guide for the shown account only; other accounts keep theirs. */
+function hideGuide(d: Diagnostics): void {
+  if (d.account !== null && !wizard.hidden.includes(d.account)) wizard.hidden.push(d.account);
+  saveWizard();
+  render();
+}
+
+/** Starts the "add another account" guide; `login` when a GitHub page asked for that account. */
+function beginAdd(d: Diagnostics, login = ''): void {
+  wizard.add = startAdd(
+    d.accounts.map((a) => a.userId),
+    login,
+  );
+  saveWizard();
+  message = null;
+  selectTab('setup');
+}
+
+function cancelAdd(): void {
+  wizard.add = null;
+  saveWizard();
+  message = null;
+  if (diagnostics?.connect.kind === 'authorizing') void act({ type: 'auth/cancel' });
+  else render();
+}
+
+interface AppChoice {
+  clientId: string;
+  /** Logins of the accounts connected here that use it. */
+  users: string[];
+  isDefault: boolean;
+}
+
+/** The apps an added account can reuse: the default one, and each one some account uses as its own. */
+function appChoices(d: Diagnostics): AppChoice[] {
+  const choices = new Map<string, AppChoice>();
+  if (d.clientId.value) choices.set(d.clientId.value, { clientId: d.clientId.value, users: d.accounts.flatMap((a) => (!a.app && a.login ? [a.login] : [])), isDefault: true });
+  for (const own of d.ownApps) {
+    const choice = choices.get(own.clientId) ?? { clientId: own.clientId, users: [], isDefault: false };
+    if (own.login) choice.users.push(own.login);
+    choices.set(own.clientId, choice);
+  }
+  return [...choices.values()];
+}
+
+function appLabel(choice: AppChoice): string {
+  if (choice.users.length) return `The app ${choice.users.map((u) => `@${u}`).join(' and ')} ${choice.users.length > 1 ? 'use' : 'uses'}`;
+  return choice.isDefault ? 'Your GitHub App' : 'The app another of your accounts uses';
+}
+
+/**
+ * Adding another GitHub account: choose the app it signs in through (reuse one, or make a separate one), switch
+ * github.com to it, connect. Once it appears the page shows it, and its own guide continues with installing.
+ */
+function addCard(d: Diagnostics): HTMLElement {
+  const add = wizard.add!;
+  const who = add.login ? `@${add.login}` : 'the account';
+  const chosen = add.clientId !== '';
+  const choice = appChoices(d).find((c) => c.clientId === add.clientId);
+  const slug = slugOf(d, add.clientId);
+  const change = button(
+    'Change',
+    () => {
+      add.clientId = '';
+      saveWizard();
+      message = null;
+      render();
+    },
+    'link',
+  );
+  const stages: { title: string; state: 'done' | 'current' | 'todo'; body: () => (Node | string)[] }[] = [
+    {
+      title: 'Choose its GitHub App',
+      state: chosen ? 'done' : 'current',
+      body: () => [h('p', { className: 'muted' }, choice ? `${appLabel(choice)}.` : `A separate app${slug ? ` “${slug}”` : ''}, client ID ${add.clientId}.`, ' ', change)],
+    },
+    { title: `Connect ${who}`, state: chosen ? 'current' : 'todo', body: () => addConnectStage(d, add) },
+    { title: 'Let the app see its repositories', state: 'todo', body: () => [] },
+  ];
+  const items = stages.map((stage, index) => {
+    const li = h('li', { className: `stage is-${stage.state}`, 'aria-current': stage.state === 'current' ? 'step' : null }, h('h3', {}, stage.title, stage.state === 'done' ? h('span', { className: 'sr-only' }, ' (done)') : null));
+    if (stage.state === 'done') li.append(...stage.body());
+    if (stage.state === 'current') li.append(...(index === 0 ? addAppStage(d, add) : stage.body()));
+    return li;
+  });
+  return h(
+    'section',
+    { className: 'card setup', id: 'setup', 'aria-labelledby': 'setup-title' },
+    h('h2', { id: 'setup-title' }, add.login ? `Add @${add.login}` : 'Add another GitHub account'),
+    h('p', { className: 'muted' }, 'Each account keeps its own repositories and sections, and the navigator on github.com shows the one each page is signed in as.'),
+    h('ol', { className: 'wizard' }, ...items),
+    h('div', { className: 'row' }, button('Cancel', cancelAdd)),
+  );
+}
+
+function addAppStage(d: Diagnostics, add: AddAccount): (Node | string)[] {
+  const who = add.login ? `@${add.login}` : 'the account';
+  if (add.separate) {
+    return [
+      h(
+        'p',
+        { className: 'notice' },
+        h('strong', {}, `Sign in to github.com as ${who} first`),
+        ' (your avatar at the top right, then ',
+        h('strong', {}, 'Switch account'),
+        ' or ',
+        h('strong', {}, 'Add account'),
+        '), so the new app belongs to that account.',
+      ),
+      ...newAppStage(d, add.form, 'add', isManagedLogin(add.login)),
+      h(
+        'p',
+        { className: 'muted' },
+        button(
+          'Reuse an app instead',
+          () => {
+            add.separate = false;
+            saveWizard();
+            render();
+          },
+          'link',
+        ),
+      ),
+    ];
+  }
+  const managed = isManagedLogin(add.login);
+  const option = (key: string, title: string, text: string, onClick: () => void) => {
+    const b = h('button', { type: 'button', className: 'path-option', 'data-key': key }, h('strong', {}, title), h('span', { className: 'muted' }, text));
+    b.addEventListener('click', () => {
+      message = null;
+      onClick();
+      saveWizard();
+      render();
+    });
+    return b;
+  };
+  const reuse = appChoices(d).map((c) =>
+    option(`add-app-${c.clientId}`, appLabel(c), c.isDefault ? 'Nothing to create: one app works for any number of personal accounts and organizations.' : `Client ID ${c.clientId}. Nothing to create.`, () => {
+      add.clientId = c.clientId;
+    }),
+  );
+  const separate = option(
+    'add-app-separate',
+    managed ? 'A separate app for this account (recommended)' : 'A separate app for this account',
+    managed ? `Made while signed in as ${who}, so it counts as an app of the “${enterpriseCode(add.login)}” enterprise. About three minutes.` : 'Only needed when an enterprise or organization wants its own app, as some work accounts do. About three minutes.',
+    () => {
+      add.separate = true;
+    },
+  );
+  return [
+    h(
+      'p',
+      {},
+      managed
+        ? `${who} is a managed account of the “${enterpriseCode(add.login)}” enterprise. Its organizations’ owners decide which apps may be installed there, and some enterprises allow only apps made inside them. A separate app made while signed in as ${who} is the safer choice; reusing yours works where the owners allow it.`
+        : 'Every account signs in through a GitHub App. One app works for any number of accounts, so reusing yours is the quick way.',
+    ),
+    h('div', { className: 'path-options' }, ...(managed ? [separate, ...reuse] : [...reuse, separate])),
+    ...(add.login
+      ? []
+      : [h('p', { className: 'muted' }, 'Adding a work account whose name ends in an underscore and a short code, like mona-lisa_acme? That is a managed account of a company’s enterprise: a separate app is the safer choice.')]),
+  ];
+}
+
+function addConnectStage(d: Diagnostics, add: AddAccount): (Node | string)[] {
+  const connect = d.connect;
+  if (connect.kind === 'authorizing') return authorizingBody(d, connect, add.clientId);
+  const who = add.login ? `@${add.login}` : 'the account you are adding';
+  const nodes: (Node | string)[] = [
+    h('p', {}, 'GitHub connects whichever account is signed in on github.com, so switch to it there first.'),
+    h(
+      'ol',
+      { className: 'substeps' },
+      h('li', {}, 'On github.com, click your avatar at the top right, then ', h('strong', {}, 'Switch account'), ` and pick ${who}. Not listed? Choose `, h('strong', {}, 'Add account'), ' and sign in to it; your other account stays signed in.'),
+      h('li', {}, 'Come back to this tab and click ', h('strong', {}, 'Connect this account'), '. This page then shows a code to enter on GitHub.'),
+    ),
+    h('div', { className: 'row' }, button('Connect this account', () => void act({ type: 'auth/start', mode: 'add', clientId: add.clientId }), 'primary')),
+  ];
+  if (connect.kind === 'signed-out' && connect.problem) {
+    nodes.push(h('p', { className: 'notice', role: 'alert' }, connect.problem.message));
+    if (!connect.problem.restartable) nodes.push(problemFix(d, add));
+  }
+  return nodes;
+}
+
 /**
  * First step, before anything about creating an app: is this a first setup, or another browser for someone who
  * already has a GitHub App? The client ID syncs through Chrome Sync, so a browser on the same Chrome profile
@@ -431,7 +722,7 @@ function choosePath(path: Wizard['path']): void {
  */
 function createStage(d: Diagnostics): (Node | string)[] {
   if (wizard.path === 'existing') return existingAppStage(d);
-  if (wizard.path === 'new') return [...newAppStage(d), h('p', { className: 'muted' }, button('I already set this up in another browser', () => choosePath('existing'), 'link'))];
+  if (wizard.path === 'new') return [...newAppStage(d, wizard, 'default'), h('p', { className: 'muted' }, button('I already set this up in another browser', () => choosePath('existing'), 'link'))];
   const option = (path: 'new' | 'existing', title: string, text: string) => {
     const b = h('button', { type: 'button', className: 'path-option', 'data-key': `path-${path}` }, h('strong', {}, title), h('span', { className: 'muted' }, text));
     b.addEventListener('click', () => choosePath(path));
@@ -491,49 +782,49 @@ function existingAppStage(d: Diagnostics): (Node | string)[] {
   ];
 }
 
-/** First-time setup: create the GitHub App through GitHub's pre-filled form. */
-function newAppStage(d: Diagnostics): (Node | string)[] {
+/** Creating a GitHub App through GitHub's pre-filled form: the first one (default), or one for an account being added. */
+/** `managed`: made by a managed account, whose app GitHub limits to its enterprise. */
+function newAppStage(d: Diagnostics, form: AppForm, target: ClientIdTarget, managed = false): (Node | string)[] {
   const ownerRadio = (value: Wizard['owner'], label: string) => {
-    const input = h('input', { type: 'radio', name: 'wizard-owner', value, checked: wizard.owner === value, 'data-key': `wizard-owner-${value}` });
+    const input = h('input', { type: 'radio', name: 'wizard-owner', value, checked: form.owner === value, 'data-key': `wizard-owner-${value}` });
     input.addEventListener('change', () => {
-      wizard.owner = value;
+      form.owner = value;
       saveWizard();
       render();
     });
     return h('label', { className: 'choice' }, input, label);
   };
   const orgInput = h('input', { type: 'text', placeholder: 'organization-login', 'aria-label': 'Organization login', spellcheck: 'false', autocomplete: 'off', 'data-key': 'wizard-org' });
-  orgInput.value = wizard.org;
+  orgInput.value = form.org;
   orgInput.addEventListener('input', () => {
-    wizard.org = orgInput.value;
+    form.org = orgInput.value;
     saveWizard();
   });
-  const fields = appFormList(appFormFields(wizard));
+  const fields = appFormList(appFormFields(form, managed));
   const nameInput = h('input', { type: 'text', maxlength: 34, 'aria-label': 'GitHub App name', spellcheck: 'false', autocomplete: 'off', 'data-key': 'wizard-name' });
-  nameInput.value = wizard.name;
+  nameInput.value = form.name;
   nameInput.addEventListener('input', () => {
-    wizard.name = nameInput.value;
+    form.name = nameInput.value;
     saveWizard();
     // The field list repeats the name; keep it in step without a re-render (which would steal focus).
     const shown = fields.querySelector('[data-field="name"] code');
-    if (shown) shown.textContent = wizard.name.trim();
+    if (shown) shown.textContent = form.name.trim();
   });
   const openForm = () => {
-    if (!wizard.name.trim()) {
+    if (!form.name.trim()) {
       message = { text: 'Give the app a name first.', kind: 'bad' };
       render();
       return;
     }
-    if (wizard.owner === 'org' && !ORG_RE.test(wizard.org.trim())) {
+    if (form.owner === 'org' && !ORG_RE.test(form.org.trim())) {
       message = { text: 'Type the organization’s login as it appears in its URL, e.g. "my-company" for github.com/my-company.', kind: 'bad' };
       render();
       return;
     }
-    wizard.org = wizard.org.trim();
-    wizard.slug = '';
+    form.org = form.org.trim();
     saveWizard();
     message = null;
-    window.open(newAppUrl(wizard), '_blank', 'noopener');
+    window.open(newAppUrl(form), '_blank', 'noopener');
   };
   return [
     h('p', {}, 'The extension signs in through a small GitHub App that you own. It can only read repository names and similar metadata. No password, secret or server is involved.'),
@@ -545,7 +836,7 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
         {},
         h('p', {}, h('strong', {}, 'Open GitHub’s form, already filled in.'), ' Make sure you are signed in to GitHub in this browser, then choose who will own the app:'),
         h('div', { className: 'row' }, ownerRadio('user', 'My personal account'), ownerRadio('org', 'An organization I own')),
-        wizard.owner === 'org'
+        form.owner === 'org'
           ? h('div', {}, h('div', { className: 'row' }, h('label', { className: 'field' }, 'Organization login', orgInput)), h('p', { className: 'muted' }, 'You must be an owner of the organization. If you are not, choose your personal account; the app can still be installed on the organization later.'))
           : null,
         h('div', { className: 'row' }, h('label', { className: 'field' }, 'App name', nameInput)),
@@ -574,7 +865,7 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
         {},
         h('p', {}, h('strong', {}, 'Copy the Client ID and paste it here.'), ' After you click Create, GitHub shows your new app’s page. Near the top, copy the value next to ', h('strong', {}, 'Client ID'), ' (it starts with ', h('code', {}, 'Iv'), ').'),
         h('p', { className: 'notice' }, 'Do not click “Generate a new client secret” or “Generate a private key”. This extension never needs them, and you should never paste a secret here.'),
-        clientIdForm(d, 'client-id-setup'),
+        clientIdForm(d, target === 'add' ? 'client-id-add' : 'client-id-setup', target),
       ),
     ),
     h('p', { className: 'muted' }, 'Already have a GitHub App with Device Flow enabled and Metadata: Read-only? Just paste its client ID above.'),
@@ -584,11 +875,14 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
 function connectStage(d: Diagnostics): (Node | string)[] {
   const auth = d.auth;
   if (auth.kind === 'authorizing') return authorizingBody(d, auth);
+  const reconnect = auth.kind === 'expired';
   const nodes: (Node | string)[] = [
     h('p', {}, 'Now let this browser sign in through your app. Click the button, and this page shows a short code to enter on GitHub. It takes about 20 seconds.'),
-    h('div', { className: 'row' }, button(auth.kind === 'expired' ? 'Reconnect GitHub' : 'Connect GitHub', () => void act({ type: 'auth/start' }), 'primary')),
+    h('div', { className: 'row' }, button(reconnect ? 'Reconnect GitHub' : 'Connect GitHub', () => void act(reconnect ? { type: 'auth/start', mode: 'reconnect' } : { type: 'auth/start' }), 'primary')),
     h('p', { className: 'muted' }, 'If an organization uses SAML single sign-on, sign in to it on github.com first so its repositories are included.'),
   ];
+  // Another browser connects some account through its own app (Chrome Sync says so): that app can be picked here too.
+  if (!reconnect && d.ownApps.length) nodes.push(h('p', { className: 'muted' }, 'Connecting an account that uses its own GitHub App on your other browsers? ', button('Pick its app', () => beginAdd(d), 'link')));
   if (auth.kind === 'signed-out' && auth.problem) {
     nodes.push(h('p', { className: 'notice', role: 'alert' }, auth.problem.message));
     if (!auth.problem.restartable) nodes.push(problemFix(d));
@@ -611,20 +905,6 @@ function installStage(d: Diagnostics, progress: SetupProgress): (Node | string)[
   const who = login ? `@${login}` : 'your account';
   if (progress.checking) return [h('p', {}, h('span', { className: 'spinner', 'aria-hidden': 'true' }), ' Checking which accounts the app can see…')];
   const checkAgain = button('Check again', () => void act({ type: 'inventory/refresh', force: true }));
-  const skip = h(
-    'p',
-    { className: 'muted' },
-    'Only need repositories from organizations, not your own? ',
-    button(
-      'Skip this step',
-      () => {
-        wizard.dismissed = true;
-        saveWizard();
-        render();
-      },
-      'link',
-    ),
-  );
   const own = progress.own;
   if (own) {
     // Installed, but limited to hand-picked repositories.
@@ -638,11 +918,11 @@ function installStage(d: Diagnostics, progress: SetupProgress): (Node | string)[
         h('li', {}, 'Click ', h('strong', {}, 'Save'), ', then come back to this tab. It checks again automatically.'),
       ),
       h('div', { className: 'row' }, own.settingsUrl ? link('Change repository access', own.settingsUrl, 'button primary') : link('Open installed apps', 'https://github.com/settings/installations', 'button primary'), checkAgain),
-      skip,
+      skipLine(d, 'Only need repositories from organizations, not your own? '),
     ];
   }
-  const slug = currentSlug(d);
-  const nodes: (Node | string)[] = [
+  if (login && isManagedLogin(login)) return managedInstallStage(d, login, checkAgain);
+  return [
     h(
       'p',
       { className: 'notice' },
@@ -656,55 +936,102 @@ function installStage(d: Diagnostics, progress: SetupProgress): (Node | string)[
       h('li', {}, 'Choose ', h('strong', {}, 'All repositories'), ' (not “Only select repositories”), so new repositories show up too.'),
       h('li', {}, 'Click ', h('strong', {}, 'Install'), ', then come back to this tab. It checks again automatically.'),
     ),
+    ...installLinks(d, checkAgain),
+    skipLine(d, 'Only need repositories from organizations, not your own? '),
   ];
-  if (slug) {
-    nodes.push(h('div', { className: 'row' }, link('Install the app on GitHub', installUrl(slug), 'button primary'), checkAgain));
-  } else if (slugCheck?.pending) {
-    nodes.push(h('p', { className: 'muted' }, h('span', { className: 'spinner', 'aria-hidden': 'true' }), ' Finding your app on GitHub…'));
-  } else {
-    // The app was named or renamed on GitHub, so its address is unknown. Ask for it once; it is verified.
-    const input = h('input', { type: 'text', placeholder: 'https://github.com/settings/apps/your-app', 'aria-label': 'Your GitHub App’s address', spellcheck: 'false', autocomplete: 'off', 'data-key': 'slug-input' });
-    input.value = slugDraft ?? '';
-    input.addEventListener('input', () => {
-      slugDraft = input.value;
-    });
-    const find = () => {
-      const slug = parseAppSlug(input.value);
-      if (!slug) {
-        message = { text: 'Paste the address from your browser’s address bar while your app’s page is open on GitHub. It looks like github.com/settings/apps/your-app.', kind: 'bad' };
-        render();
-        return;
-      }
-      slugDraft = null;
-      message = null;
-      void resolveSlug(d, [slug]).then(() => {
-        if (!currentSlug(d)) {
-          message = { text: `GitHub has no app “${slug}” with client ID ${d.clientId.value}. Check that you copied the address of the same app whose client ID you saved.`, kind: 'bad' };
-          render();
-        }
-      });
-    };
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') find();
-    });
-    nodes.push(
+}
+
+/**
+ * A managed account (Enterprise Managed Users): GitHub never lets one install an app on itself, so the app goes on the
+ * enterprise's organizations (or, for a repository admin, chosen repositories). Any installation finishes setup.
+ */
+function managedInstallStage(d: Diagnostics, login: string, checkAgain: HTMLButtonElement): (Node | string)[] {
+  const who = `@${login}`;
+  return [
+    h(
+      'p',
+      { className: 'notice' },
+      `${who} is a managed account of the “${enterpriseCode(login)}” enterprise. GitHub does not let managed accounts install apps on themselves, so the app goes on the enterprise’s organizations instead. Until it is on at least one, their repositories cannot be listed (${plural(d.inventory.count, 'repository', 'repositories')} so far).`,
+    ),
+    h(
+      'ol',
+      { className: 'substeps' },
+      h('li', {}, 'Make sure github.com is signed in as ', h('strong', {}, who), ', then click ', h('strong', {}, 'Install the app on GitHub'), '.'),
+      h('li', {}, h('strong', {}, 'An organization you own:'), ' pick it, choose ', h('strong', {}, 'All repositories'), ' and click ', h('strong', {}, 'Install'), '.'),
       h(
-        'div',
-        { className: 'fix' },
-        h('p', {}, 'First, this page needs your app’s address (the name was changed on GitHub, so it cannot guess it):'),
-        h(
-          'ol',
-          { className: 'substeps' },
-          h('li', {}, 'Open ', link('your GitHub Apps', appSettingsUrl(wizard, '')), ' and click your app’s name.'),
-          h('li', {}, 'Copy the address from the browser’s address bar and paste it here.'),
-        ),
-        h('div', { className: 'row' }, input, button('Find my app', find, 'primary')),
+        'li',
+        {},
+        h('strong', {}, 'Any other organization:'),
+        ' pick it and click ',
+        h('strong', {}, 'Request'),
+        '. GitHub asks its owners to approve, and the repositories appear here once they do. If you are an admin of some of its repositories, GitHub may instead let you install it on just those.',
       ),
-      h('div', { className: 'row' }, checkAgain),
-    );
-  }
-  nodes.push(skip);
-  return nodes;
+      h('li', {}, 'Come back to this tab. It checks again automatically.'),
+    ),
+    ...installLinks(d, checkAgain),
+    ...(shownAccount(d)?.app
+      ? []
+      : [
+          h(
+            'p',
+            { className: 'muted' },
+            `GitHub lists none of the enterprise’s organizations, or an owner turns the request down? Some enterprises allow only apps made inside them. Disconnect ${who} below, then add it again and choose “A separate app for this account”, making it while signed in as ${who}.`,
+          ),
+        ]),
+    skipLine(d, 'Only need repositories that are already listed? '),
+  ];
+}
+
+function skipLine(d: Diagnostics, text: string): HTMLElement {
+  return h('p', { className: 'muted' }, text, button('Skip this step', () => hideGuide(d), 'link'));
+}
+
+/** The install button, or (the app's address unknown) a way to find the app first. */
+function installLinks(d: Diagnostics, checkAgain: HTMLButtonElement): HTMLElement[] {
+  const app = appOf(d);
+  const slug = currentSlug(d);
+  if (slug) return [h('div', { className: 'row' }, link('Install the app on GitHub', installUrl(slug), 'button primary'), checkAgain)];
+  if (slugChecks.get(app)?.pending) return [h('p', { className: 'muted' }, h('span', { className: 'spinner', 'aria-hidden': 'true' }), ' Finding your app on GitHub…')];
+  // The app was named or renamed on GitHub, so its address is unknown. Ask for it once; it is verified.
+  const input = h('input', { type: 'text', placeholder: 'https://github.com/settings/apps/your-app', 'aria-label': 'Your GitHub App’s address', spellcheck: 'false', autocomplete: 'off', 'data-key': 'slug-input' });
+  input.value = slugDraft ?? '';
+  input.addEventListener('input', () => {
+    slugDraft = input.value;
+  });
+  const find = () => {
+    const slug = parseAppSlug(input.value);
+    if (!slug) {
+      message = { text: 'Paste the address from your browser’s address bar while your app’s page is open on GitHub. It looks like github.com/settings/apps/your-app.', kind: 'bad' };
+      render();
+      return;
+    }
+    slugDraft = null;
+    message = null;
+    void resolveSlug(d, app, [slug]).then(() => {
+      if (!slugOf(d, app)) {
+        message = { text: `GitHub has no app “${slug}” with client ID ${app}. Check that you copied the address of the same app whose client ID you saved.`, kind: 'bad' };
+        render();
+      }
+    });
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') find();
+  });
+  return [
+    h(
+      'div',
+      { className: 'fix' },
+      h('p', {}, 'First, this page needs your app’s address (the name was changed on GitHub, so it cannot guess it):'),
+      h(
+        'ol',
+        { className: 'substeps' },
+        h('li', {}, 'Open ', link('your GitHub Apps', appSettingsUrl(wizard, '')), ' and click your app’s name.'),
+        h('li', {}, 'Copy the address from the browser’s address bar and paste it here.'),
+      ),
+      h('div', { className: 'row' }, input, button('Find my app', find, 'primary')),
+    ),
+    h('div', { className: 'row' }, checkAgain),
+  ];
 }
 
 function doneStage(d: Diagnostics): (Node | string)[] {
@@ -744,11 +1071,7 @@ function doneStage(d: Diagnostics): (Node | string)[] {
     h(
       'div',
       { className: 'row' },
-      button('Hide this guide', () => {
-        wizard.dismissed = true;
-        saveWizard();
-        render();
-      }),
+      button('Hide this guide', () => hideGuide(d)),
     ),
   ];
 }
@@ -773,9 +1096,12 @@ function clientIdGuide(key: string, summary: string): HTMLElement {
   );
 }
 
-function clientIdForm(d: Diagnostics, key: string): HTMLElement {
+/** Where a pasted client ID goes: the default app (synced to every browser), or the app of the account being added. */
+type ClientIdTarget = 'default' | 'add';
+
+function clientIdForm(d: Diagnostics, key: string, target: ClientIdTarget = 'default'): HTMLElement {
   const input = h('input', { type: 'text', placeholder: 'Iv23li…', 'aria-label': 'GitHub App client ID', spellcheck: 'false', autocomplete: 'off', 'data-key': key });
-  input.value = clientIdDraft ?? (d.clientId.source === 'options' ? d.clientId.value : '');
+  input.value = clientIdDraft ?? (target === 'default' && d.clientId.source === 'options' ? d.clientId.value : '');
   input.addEventListener('input', () => {
     clientIdDraft = input.value;
   });
@@ -786,13 +1112,23 @@ function clientIdForm(d: Diagnostics, key: string): HTMLElement {
       render();
       return;
     }
-    const problem = clientIdProblem(value);
+    // The background checks the default app's ID itself; the added account's is only used once it connects.
+    const problem = clientIdProblem(value) ?? (target === 'add' && !CLIENT_ID_RE.test(value) ? 'That does not look like a GitHub App client ID. Copy the value next to “Client ID” near the top of the app’s page (it starts with “Iv”).' : null);
     if (problem) {
       message = { text: problem, kind: 'bad' };
       render();
       return;
     }
     clientIdDraft = null;
+    if (target === 'add') {
+      if (!wizard.add) return;
+      wizard.add.clientId = value;
+      saveWizard();
+      message = { text: 'Client ID saved for this account. Next, connect it.', kind: 'ok' };
+      render();
+      void resolveSlug(d, value);
+      return;
+    }
     void act({ type: 'config/set-client-id', clientId: value }, 'Client ID saved.');
   };
   input.addEventListener('keydown', (e) => {
@@ -803,7 +1139,7 @@ function clientIdForm(d: Diagnostics, key: string): HTMLElement {
     { className: 'row' },
     input,
     button('Save client ID', save, 'primary'),
-    d.clientId.source === 'options' ? button('Use build default', () => void act({ type: 'config/set-client-id', clientId: '' }, 'Using the build default.')) : null,
+    target === 'default' && d.clientId.source === 'options' ? button('Use build default', () => void act({ type: 'config/set-client-id', clientId: '' }, 'Using the build default.')) : null,
   );
 }
 
@@ -1227,7 +1563,11 @@ function privacyCard(d: Diagnostics): HTMLElement {
       { className: 'plain' },
       h('li', {}, 'The extension talks only to github.com (sign-in) and api.github.com (repository list). There is no other server.'),
       h('li', {}, 'GitHub access is read-only repository metadata. The extension cannot change anything on GitHub.'),
-      h('li', {}, 'Tokens and the repository list stay in this browser’s local extension storage: each browser connects to GitHub on its own. Chrome Sync carries section names, order and repository IDs, plus your GitHub App’s client ID (a public identifier, not a secret) and whether you already chose how to start.'),
+      h(
+        'li',
+        {},
+        'Tokens and the repository list stay in this browser’s local extension storage: each browser connects to GitHub on its own. Chrome Sync carries section names, order and repository IDs, plus the client IDs of your GitHub Apps (public identifiers, not secrets), which accounts sign in through an app of their own (by GitHub user ID), and whether you already chose how to start.',
+      ),
       h('li', {}, 'With more than one GitHub account connected, each keeps its own sections and repository list. On github.com the extension reads only which account the page is signed in as, to show that account’s list.'),
       h('li', {}, 'Stored per repository: ID, owner, name, owner avatar URL, visibility, archived/fork flags and last push time. No code, issues, descriptions or topics.'),
       h('li', {}, 'Only when you click Suggest sections, descriptions, languages and topics are read from GitHub to build the suggestion. They are used once and not stored or synced.'),
@@ -1237,6 +1577,10 @@ function privacyCard(d: Diagnostics): HTMLElement {
       { 'data-key': 'advanced' },
       h('summary', {}, 'Advanced'),
       h('p', { className: 'muted' }, `Client ID in use: ${d.clientId.value || '(none)'} (${d.clientId.source === 'options' ? 'saved here, synced to your other browsers' : d.clientId.source}). Version ${d.extensionVersion}${CONFIG.e2e ? ' (test build)' : ''}.`),
+      ...d.ownApps.map((o) => {
+        const who = o.login ? `@${o.login}` : 'An account connected on another browser';
+        return h('p', { className: 'muted copy-line' }, `${who} signs in through its own GitHub App: `, h('code', {}, o.clientId), copyButton(() => o.clientId, `client ID of ${o.login ? `@${o.login}’s` : 'that'} app`));
+      }),
       d.clientId.value
         ? h(
             'div',
@@ -1258,9 +1602,9 @@ function privacyCard(d: Diagnostics): HTMLElement {
         'div',
         { className: 'row' },
         button('Clear cached repositories', () => void act({ type: 'data/clear-cache' }, 'Cache cleared; refreshing.')),
-        wizard.dismissed
+        isHidden(d)
           ? button('Show the setup guide again', () => {
-              wizard.dismissed = false;
+              wizard.hidden = wizard.hidden.filter((id) => id !== d.account);
               saveWizard();
               selectTab('setup');
             })
@@ -1383,6 +1727,11 @@ function paint(): void {
   let content: HTMLElement[];
   switch (tab) {
     case 'setup': {
+      if (wizard.add) {
+        // Adding an account: its guide connects it; the card below lists the accounts already here.
+        content = cards([addCard(d), d.accounts.length ? authCard(d) : null, effectsCard()]);
+        break;
+      }
       // While setup is on its create/connect stages, the guide is the connection UI; afterwards the normal card shows.
       const setup = setupCard(d);
       const step = setupProgress(d).step;
@@ -1429,6 +1778,13 @@ chrome.runtime.onMessage.addListener((msg: unknown) => {
   }, 150);
 });
 
+// Another Options tab changed the guide (for example, it started adding an account): follow it, so this tab never
+// writes back its older copy.
+window.addEventListener('storage', (event) => {
+  if (event.key !== WIZARD_KEY) return;
+  Object.assign(wizard, loadWizard());
+  render();
+});
 window.addEventListener('focus', autoCheck);
 document.addEventListener('visibilitychange', autoCheck);
 

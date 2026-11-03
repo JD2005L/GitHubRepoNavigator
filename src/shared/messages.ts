@@ -46,6 +46,8 @@ export interface AccountSummary {
   userId: number;
   login: string | null;
   kind: 'signed-in' | 'expired';
+  /** Its own GitHub App's client ID, or null: it uses the default app (`Diagnostics.clientId`). */
+  app: string | null;
 }
 
 export interface Diagnostics {
@@ -54,6 +56,11 @@ export interface Diagnostics {
   appSlug: string;
   /** Accounts connected on this device, in the order they were connected. */
   accounts: AccountSummary[];
+  /**
+   * Accounts that use their own GitHub App instead of the default: those connected here and (from Chrome Sync)
+   * those connected only on another browser. `login` is known only for accounts connected here.
+   */
+  ownApps: { userId: number; login: string | null; clientId: string }[];
   /** The account everything below describes (null: none is connected). */
   account: number | null;
   /** That account's state, or (none) the state of connecting one. */
@@ -96,7 +103,11 @@ export type PublicRequest =
 
 /** Requests only extension pages (the options page) may send. */
 export type PrivilegedRequest =
-  | { type: 'auth/start' }
+  /**
+   * Connect an account. Default: through the default app, for whichever account enters the code. add: another
+   * account, through the app chosen for it (`clientId`). reconnect: the request's account, through its own app.
+   */
+  | { type: 'auth/start'; mode?: 'add' | 'reconnect'; clientId?: string }
   | { type: 'auth/cancel' }
   | { type: 'auth/signout' }
   | { type: 'config/set-client-id'; clientId: string }

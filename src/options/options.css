@@ -100,6 +100,7 @@ dl.form-fields > div.must { background: var(--attention-bg); }
 dl.form-fields dt { font-weight: 600; }
 dl.form-fields dd { margin: 0; display: grid; gap: 4px; justify-items: start; overflow-wrap: anywhere; }
 .copy-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+p.copy-line { display: flex; }
 button.small { height: 24px; padding: 0 8px; font-size: 12px; }
 ul.plain { margin: 8px 0 0; padding-left: 20px; }
 ul.plain li { margin: 2px 0; }

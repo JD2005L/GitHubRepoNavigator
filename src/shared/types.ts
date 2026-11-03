@@ -1,6 +1,9 @@
 /** Immutable numeric GitHub repository ID (`repository.id`). Survives renames and transfers. */
 export type RepoId = number;
 
+/** GitHub App client IDs start with "Iv" (Iv1.xxxxxxxxxxxxxxxx or Iv23…). A 40-hex client secret never matches. */
+export const CLIENT_ID_RE = /^Iv[A-Za-z0-9.]{6,62}$/;
+
 /** Device-local navigation metadata for one repository. Nothing beyond what the navigator renders. */
 export interface RepoRecord {
   id: RepoId;

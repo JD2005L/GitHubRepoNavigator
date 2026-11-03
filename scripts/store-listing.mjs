@@ -90,7 +90,7 @@ export function storeListing(version) {
           kind: 'text',
           limit: 1000,
           value:
-            "Stores the user's sections (names, order, and which repository IDs each holds) in chrome.storage.sync so they follow the user to their other Chrome devices, together with the user's own GitHub App client ID (a public identifier) so another browser only has to sign in. On the device only (chrome.storage.local, restricted to the extension's own pages), stores the GitHub sign-in tokens and a cache of the repository list so the menu opens instantly and works when GitHub is briefly unreachable.",
+            "Stores the user's sections (names, order, and which repository IDs each holds) in chrome.storage.sync so they follow the user to their other Chrome devices, together with the client IDs of the user's own GitHub Apps (public identifiers; an account may sign in through an app of its own) so another browser only has to sign in. On the device only (chrome.storage.local, restricted to the extension's own pages), stores the GitHub sign-in tokens and a cache of the repository list so the menu opens instantly and works when GitHub is briefly unreachable.",
         },
         {
           label: 'alarms justification',

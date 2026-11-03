@@ -1,6 +1,6 @@
 # Privacy policy: GitHub Repo Navigator
 
-*Last updated: 2026-10-13*
+*Last updated: 2026-11-03*
 
 GitHub Repo Navigator is a Chrome extension that shows every GitHub repository you can access, organized into
 your own sections, in GitHub's ☰ menu and on the github.com dashboard. This policy explains what it handles and
@@ -15,7 +15,7 @@ GitHub, with read-only access to repository metadata, and keeps its data in your
 |---|---|---|
 | Your GitHub login name | GitHub's API, after you connect | To show who is connected and to recognise your own account. |
 | The login name of the account a github.com page is signed in as | The page itself (GitHub names it in a `user-login` tag) | To show that account's repositories and sections when you connect more than one account. Compared with your connected accounts and not stored. |
-| Your GitHub user ID | GitHub's API, after you connect | To keep each connected account's data apart, and to record which account the first set of synced sections belongs to. |
+| Your GitHub user ID | GitHub's API, after you connect | To keep each connected account's data apart, to record which account the first set of synced sections belongs to, and to record which GitHub App an account signs in through when it uses one of its own. |
 | GitHub access and refresh tokens | GitHub's device-flow sign-in, which you start | To read your repository list. |
 | Repository metadata: ID, owner, name, owner avatar URL, visibility, archived/fork flags, last push time | GitHub's API | To show and organize your repositories. |
 | GitHub App installations: account name and type, whether all or selected repositories are shared | GitHub's API | To tell you which accounts the app can see and what to fix. |
@@ -34,8 +34,9 @@ cookies, and does not collect browsing history, analytics or usage statistics.
   tokens, your login name, the repository list and its cache metadata, kept separately for each GitHub account you
   connect. Content scripts running on github.com cannot read this area.
 - **Chrome Sync** (`chrome.storage.sync`, only if you use Chrome Sync): your sections, their order and collapsed
-  state, and the repository IDs in each; your GitHub App's client ID (a public identifier, not a secret) so another
-  browser only has to connect; and whether you answered "How do you want to start?". Each connected GitHub account
+  state, and the repository IDs in each; the client IDs of your GitHub Apps (public identifiers, not secrets) so another
+  browser only has to connect, including, for an account that signs in through an app of its own, which app that is
+  (by GitHub user ID); and whether you answered "How do you want to start?". Each connected GitHub account
   has its own sections, filed under its GitHub user ID. No tokens, names, descriptions or other repository details
   are synced.
   Chrome Sync is operated by Google under Google's privacy policy.

@@ -37,7 +37,8 @@ stays in place.
 - **Synced.** Sections travel through Chrome Sync, keyed by GitHub's immutable repository IDs, so renamed or
   transferred repositories keep their place.
 - **More than one GitHub account.** Each github.com page shows the repositories and sections of the account it is
-  signed in as, so GitHub's account switcher switches the list too.
+  signed in as, so GitHub's account switcher switches the list too. A guide adds each account, including managed
+  work accounts that need a GitHub App of their own.
 - **Guided setup.** A checklist on the settings page verifies each step against what the extension can see.
 - **Read-only and private.** Read-only repository metadata, no server, nothing sent anywhere but GitHub.
 - **Accessible.** Full keyboard support, screen reader announcements for moves, and every GitHub theme.
@@ -82,6 +83,22 @@ The settings page walks you through this on its *Setup* tab, with a checklist th
 Repositories owned by organizations or other people appear once the app is installed on that account too; the
 guide gives you an install link to send to an account's owner. On a second browser with Chrome Sync, the client ID
 and sections are already there, so setup starts at *Connect GitHub*.
+
+**More than one GitHub account.** *Add another account* (Setup tab, or *Connect @name too* in the GitHub menu of a
+page signed in as an account that is not connected) walks through it:
+
+1. **Choose its GitHub App.** Reuse yours: one app works for any number of accounts. Or make a separate one while
+   signed in as the new account, for an enterprise or organization that wants its own.
+2. **Connect it.** Switch github.com to that account first (avatar → *Switch account*): GitHub connects whichever
+   account enters the code. A code entered as an account that is already connected adds nothing and says so, and an
+   account never moves to a different app by accident.
+3. **Let the app see its repositories**, as in step 3 above. The page switches to the new account and its own guide
+   continues there; each account's guide is finished or hidden separately.
+
+A *managed* account (GitHub Enterprise Managed Users, with a login like `mona-lisa_acme`) cannot have apps
+installed on itself; GitHub only allows them on the enterprise's organizations, installed by an owner (or requested
+from one). Its guide says so and finishes once the app is installed on any of them. An app made while signed in as a
+managed account is limited to its enterprise, which is the kind of app some enterprises require.
 
 <details>
 <summary>Manual GitHub App settings (if you prefer to create it by hand)</summary>
@@ -155,7 +172,8 @@ sections with the same name, and can be undone.
 ## Chrome Sync
 
 - **Synced** (`chrome.storage.sync`): section IDs, names, order, collapsed state and the ordered repository IDs in
-  each, plus the GitHub App's client ID (a public identifier) and whether the first-run question was answered.
+  each, plus the GitHub Apps' client IDs (public identifiers: the default app, and the app of each account that
+  signs in through its own, by GitHub user ID) and whether the first-run question was answered.
   1,000 placed repositories take about 7 KB of Chrome's 100 KB sync quota. Each GitHub account has its own sections.
 - **This device only** (`chrome.storage.local`, which content scripts cannot read): per account, the repository
   cache, ETags, refresh metadata, the GitHub tokens and the sign-in identity.

@@ -1,4 +1,4 @@
-import type { AuthProblem, AuthState } from '../../shared/types';
+import { CLIENT_ID_RE, type AuthProblem, type AuthState } from '../../shared/types';
 import type { FetchLike } from '../github/client';
 import { GitHubClient, GitHubError } from '../github/client';
 import type { StorageAreaLike, Timers } from '../layoutStore';
@@ -19,6 +19,12 @@ export const accountPrefix = (userId: number): string => `acct.${userId}.`;
  * prefix, which the layout store owns. Versions before 1.2 kept it in storage.local; init() moves it.
  */
 export const CLIENT_ID_KEY = 'config.clientId';
+/**
+ * storage.sync: the GitHub App of each account that does not use the default one (`CLIENT_ID_KEY`), as
+ * { [GitHub user ID]: client ID }. Synced so another browser connects that account through the same app. Client IDs
+ * are public identifiers; no login, token or anything else about the account.
+ */
+export const ACCOUNT_APPS_KEY = 'config.accountApps';
 /** storage.session (memory only): the device flow in progress. */
 export const PENDING_KEY = 'auth.pending';
 
@@ -28,6 +34,29 @@ export const REFRESH_EARLY_MS = 5 * 60_000;
 export interface Identity {
   login: string | null;
   userId: number | null;
+}
+
+/** What a connection is for, which decides what a code entered as an unexpected account may change. */
+export type ConnectMode = 'connect' | 'add' | 'reconnect';
+
+export interface StartOptions {
+  /**
+   * connect: the default app, for whichever account enters the code. add: another account, with the app chosen
+   * for it (`clientId`). reconnect: the account `userId`, with the app it uses.
+   */
+  mode?: ConnectMode;
+  clientId?: string;
+  userId?: number;
+}
+
+/** The device flow in progress, and what it is for. */
+interface Pending extends PendingFlow {
+  mode: ConnectMode;
+}
+
+/** One account's identity as stored: who it is, and its own GitHub App (null: it uses the default one). */
+interface StoredIdentity extends Identity {
+  app: string | null;
 }
 
 export interface AuthDeps {
@@ -51,8 +80,7 @@ export interface AuthDeps {
   onSignedOut(userId: number, reason: 'signout' | 'expired'): void;
 }
 
-/** GitHub App client IDs start with "Iv" (Iv1.xxxxxxxxxxxxxxxx or Iv23…). A 40-hex client secret never matches. */
-export const CLIENT_ID_RE = /^Iv[A-Za-z0-9.]{6,62}$/;
+export { CLIENT_ID_RE };
 
 type RefreshOutcome = 'ok' | 'rejected' | 'transient';
 
@@ -70,17 +98,33 @@ function parseTokens(value: unknown): TokenSet | null {
   };
 }
 
-function parseIdentity(value: unknown): Identity {
-  const identity = value as Partial<Identity> | undefined;
-  return { login: typeof identity?.login === 'string' ? identity.login : null, userId: typeof identity?.userId === 'number' ? identity.userId : null };
+function parseIdentity(value: unknown): StoredIdentity {
+  const identity = value as Partial<StoredIdentity> | undefined;
+  return {
+    login: typeof identity?.login === 'string' ? identity.login : null,
+    userId: typeof identity?.userId === 'number' ? identity.userId : null,
+    app: typeof identity?.app === 'string' && CLIENT_ID_RE.test(identity.app) ? identity.app : null,
+  };
 }
 
-function parsePending(value: unknown): PendingFlow | null {
+function parsePending(value: unknown): Pending | null {
   if (!value || typeof value !== 'object') return null;
-  const p = value as Partial<PendingFlow>;
+  const p = value as Partial<Pending>;
   if (typeof p.deviceCode !== 'string' || typeof p.userCode !== 'string' || typeof p.verificationUri !== 'string') return null;
   if (typeof p.expiresAt !== 'number' || typeof p.intervalS !== 'number' || typeof p.clientId !== 'string' || typeof p.requestedAt !== 'number') return null;
-  return { ...(p as PendingFlow), lastPollAt: typeof p.lastPollAt === 'number' ? p.lastPollAt : p.requestedAt };
+  const mode = p.mode === 'add' || p.mode === 'reconnect' ? p.mode : 'connect';
+  return { ...(p as PendingFlow), mode, lastPollAt: typeof p.lastPollAt === 'number' ? p.lastPollAt : p.requestedAt };
+}
+
+/** { user ID: client ID } from Chrome Sync, keeping only well-formed entries. */
+function parseAccountApps(value: unknown): Map<number, string> {
+  const apps = new Map<number, string>();
+  if (!value || typeof value !== 'object') return apps;
+  for (const [key, clientId] of Object.entries(value as Record<string, unknown>)) {
+    const userId = Number(key);
+    if (Number.isSafeInteger(userId) && userId > 0 && typeof clientId === 'string' && CLIENT_ID_RE.test(clientId)) apps.set(userId, clientId);
+  }
+  return apps;
 }
 
 /** Asks GitHub who a token belongs to. `rejected`: GitHub refused the token; `transient`: it could not be asked. */
@@ -111,7 +155,7 @@ interface AccountDeps {
  */
 export class AccountAuth {
   private tokens: TokenSet | null = null;
-  private identity: Identity;
+  private identity: StoredIdentity;
   private refreshing: Promise<RefreshOutcome> | null = null;
   private lastRefreshAt = -Infinity;
   /** Bumped by sign-in, sign-out and expiry; async work started under an older epoch must not write. */
@@ -121,7 +165,7 @@ export class AccountAuth {
     readonly userId: number,
     private readonly deps: AccountDeps,
   ) {
-    this.identity = { login: null, userId };
+    this.identity = { login: null, userId, app: null };
   }
 
   async init(): Promise<void> {
@@ -134,6 +178,11 @@ export class AccountAuth {
     return this.identity.login;
   }
 
+  /** The account's own GitHub App (client ID), or null: it uses the default app. Kept after expiry, for Reconnect. */
+  get app(): string | null {
+    return this.identity.app;
+  }
+
   /** Listed accounts are connected (signed in) or were and have expired (reconnect). */
   state(): Extract<AuthState, { kind: 'signed-in' | 'expired' }> {
     if (this.tokens) return { kind: 'signed-in', login: this.identity.login, expiresAt: this.tokens.expiresAt };
@@ -144,11 +193,11 @@ export class AccountAuth {
     return this.tokens !== null;
   }
 
-  /** A new token pair for this account (connected again, or for the first time). */
-  async adopt(token: TokenSet, identity: Identity): Promise<void> {
+  /** A new token pair for this account (connected again, or for the first time), through its app (`app`, null: the default). */
+  async adopt(token: TokenSet, identity: Identity, app: string | null): Promise<void> {
     this.epoch++;
     this.tokens = token;
-    this.identity = { login: identity.login ?? this.identity.login, userId: this.userId };
+    this.identity = { login: identity.login ?? this.identity.login, userId: this.userId, app };
     await this.deps.local.set({ [TOKENS_KEY]: token, [IDENTITY_KEY]: this.identity });
     this.deps.onChange();
   }
@@ -255,9 +304,11 @@ export class AccountAuth {
  */
 export class AuthManager {
   private readonly accounts = new Map<number, AccountAuth>();
-  private pending: PendingFlow | null = null;
+  private pending: Pending | null = null;
   private problem: AuthProblem | null = null;
   private clientIdOverride = '';
+  /** Chrome Sync's record of which accounts use their own GitHub App, including accounts connected only elsewhere. */
+  private syncedApps = new Map<number, string>();
   private pollTimer: unknown = null;
   private polling = false;
   /** The account that 1.2 or earlier had connected, when this start moved it under its prefix. */
@@ -266,10 +317,11 @@ export class AuthManager {
   constructor(private readonly deps: AuthDeps) {}
 
   async init(): Promise<void> {
-    const [session, synced] = await Promise.all([this.deps.session.get(PENDING_KEY), this.deps.sync.get(CLIENT_ID_KEY)]);
+    const [session, synced] = await Promise.all([this.deps.session.get(PENDING_KEY), this.deps.sync.get([CLIENT_ID_KEY, ACCOUNT_APPS_KEY])]);
     const local = await this.deps.local.get([ACCOUNTS_KEY, CLIENT_ID_KEY]);
     const valid = (value: unknown): string => (typeof value === 'string' && CLIENT_ID_RE.test(value) ? value : '');
     this.clientIdOverride = valid(synced[CLIENT_ID_KEY]) || valid(local[CLIENT_ID_KEY]);
+    this.syncedApps = parseAccountApps(synced[ACCOUNT_APPS_KEY]);
     if (local[CLIENT_ID_KEY] !== undefined) {
       // Saved by an earlier version on this device only: share it with this Chrome profile's other browsers.
       if (this.clientIdOverride && !valid(synced[CLIENT_ID_KEY])) await this.deps.sync.set({ [CLIENT_ID_KEY]: this.clientIdOverride });
@@ -302,7 +354,7 @@ export class AuthManager {
     if (identity.userId === null && tokens) {
       const who = await whoIs(this.deps, tokens.accessToken);
       if (who === 'transient') return null;
-      if (who !== 'rejected') identity = who;
+      if (who !== 'rejected') identity = { ...who, app: null }; // before 1.4 every account used the default app
     }
     if (identity.userId === null) {
       await this.deps.local.remove(moving);
@@ -364,6 +416,41 @@ export class AuthManager {
     return { value: '', source: 'none' };
   }
 
+  /**
+   * Accounts that use their own GitHub App instead of the default one: those connected here, plus (from Chrome
+   * Sync) those connected on another browser, so this one can connect them through the same app.
+   */
+  ownApps(): { userId: number; clientId: string }[] {
+    const apps = new Map(this.syncedApps);
+    for (const account of this.accounts.values()) {
+      if (account.app) apps.set(account.userId, account.app);
+      else apps.delete(account.userId); // this device knows better than another browser's record
+    }
+    return [...apps].map(([userId, clientId]) => ({ userId, clientId }));
+  }
+
+  /** The app an account connects through: its own, or the default. */
+  private appFor(account: AccountAuth): string {
+    return account.app ?? this.clientId().value;
+  }
+
+  /** The record of accounts' own apps changed in Chrome Sync (another browser connected one). */
+  syncedAccountApps(value: unknown): void {
+    this.syncedApps = parseAccountApps(value);
+    this.changed();
+  }
+
+  /** Records in Chrome Sync which app an account uses (null: the default), when that changed. */
+  private async recordApp(userId: number, app: string | null): Promise<void> {
+    if ((this.syncedApps.get(userId) ?? null) === app) return;
+    const next = new Map(this.syncedApps);
+    if (app) next.set(userId, app);
+    else next.delete(userId);
+    this.syncedApps = next;
+    if (next.size) await this.deps.sync.set({ [ACCOUNT_APPS_KEY]: Object.fromEntries([...next].map(([id, clientId]) => [String(id), clientId])) });
+    else await this.deps.sync.remove(ACCOUNT_APPS_KEY);
+  }
+
   /** An account's state, or (no account) the state of connecting one: in progress, or not started. */
   state(userId: number | null = null): AuthState {
     const account = userId === null ? null : this.accounts.get(userId);
@@ -396,17 +483,22 @@ export class AuthManager {
   }
 
   /** Starts (or restarts) the device flow and returns the code to show. */
-  async start(): Promise<AuthState> {
-    const clientId = this.clientId().value;
-    if (!clientId) {
-      this.problem = { message: 'No GitHub App client ID is configured. Add it in Options.', restartable: false };
+  async start(options: StartOptions = {}): Promise<AuthState> {
+    const mode = options.mode ?? 'connect';
+    const reconnecting = mode === 'reconnect' && options.userId !== undefined ? this.accounts.get(options.userId) : undefined;
+    const clientId = mode === 'add' && options.clientId ? options.clientId.trim() : reconnecting ? this.appFor(reconnecting) : this.clientId().value;
+    if (!clientId || !CLIENT_ID_RE.test(clientId)) {
+      this.problem = {
+        message: clientId ? 'That does not look like a GitHub App client ID (they start with "Iv").' : 'No GitHub App client ID is configured. Add it in Options.',
+        restartable: false,
+      };
       this.changed();
       return this.state();
     }
     await this.cancel(false);
     this.problem = null;
     try {
-      this.pending = await requestDeviceCode(this.deps.fetch, this.deps.config.oauthBase, clientId, this.deps.timers.now());
+      this.pending = { ...(await requestDeviceCode(this.deps.fetch, this.deps.config.oauthBase, clientId, this.deps.timers.now())), mode };
     } catch (error) {
       this.fail(error);
       return this.state();
@@ -457,7 +549,7 @@ export class AuthManager {
       }
       this.pending = null;
       await this.deps.session.remove(PENDING_KEY);
-      await this.adopt(result.token);
+      await this.adopt(result.token, flow.mode);
     } catch (error) {
       if (this.pending !== flow) return;
       this.pending = null;
@@ -468,8 +560,12 @@ export class AuthManager {
     }
   }
 
-  /** The code was entered: find out whose account it connected, then add it or renew it. */
-  private async adopt(token: TokenSet): Promise<void> {
+  /**
+   * The code was entered: find out whose account it connected, then add it or renew it. GitHub connects whichever
+   * account entered the code, so a code entered as an unexpected account must not quietly move that account to a
+   * different GitHub App, or count as adding one that is already here.
+   */
+  private async adopt(token: TokenSet, mode: ConnectMode): Promise<void> {
     const who = await whoIs(this.deps, token.accessToken);
     if (typeof who === 'string' || who.userId === null) {
       // Without knowing the account, the token cannot be filed under it (or kept apart from another account's).
@@ -478,17 +574,42 @@ export class AuthManager {
       return;
     }
     const userId = who.userId;
+    const name = who.login ? `@${who.login}` : 'That account';
+    const used = token.clientId;
+    const fail = (message: string): void => {
+      this.problem = { message, restartable: true };
+      this.changed();
+    };
     let account = this.accounts.get(userId);
-    const added = !account;
-    if (!account) {
-      account = this.makeAccount(userId);
-      this.accounts.set(userId, account);
-      await this.saveAccounts();
+    if (account) {
+      const same = this.appFor(account) === used;
+      // Fresh tokens through the account's own app are welcome whatever the connection was for.
+      if (same) await account.adopt(token, who, account.app);
+      if (mode === 'add') {
+        if (same) this.deps.onSignedIn(userId, false);
+        return fail(`${name} is already connected here, so no account was added. To add a different one, switch to it on github.com first (your avatar, then Switch account), then connect again.`);
+      }
+      if (!same) return fail(`GitHub connected ${name}, which uses a different GitHub App here, so nothing changed. Switch to the account you meant on github.com (your avatar, then Switch account) and try again.`);
+      this.problem = null;
+      this.changed();
+      this.deps.onSignedIn(userId, false);
+      return;
     }
+    const known = this.syncedApps.get(userId) ?? null;
+    if (mode !== 'add' && known !== null && known !== used) {
+      return fail(`${name} uses its own GitHub App on your other browsers, so it was not connected through this one. Connect it again and pick its app.`);
+    }
+    // An app chosen while adding becomes the account's own (unless it is the default); otherwise it keeps the one it is known by.
+    const isDefault = used === this.clientId().value;
+    const app = mode === 'add' ? (isDefault ? null : used) : (known ?? (isDefault ? null : used));
+    account = this.makeAccount(userId);
+    this.accounts.set(userId, account);
+    await this.saveAccounts();
     this.problem = null;
-    await account.adopt(token, who);
+    await account.adopt(token, who, app);
+    await this.recordApp(userId, app);
     this.changed();
-    this.deps.onSignedIn(userId, added);
+    this.deps.onSignedIn(userId, true);
   }
 
   /** Forgets one account's authorization on this device. GitHub-side revocation is a link in Options (it needs the user). */

@@ -26,7 +26,7 @@
   <main>
     <p class="label">// Privacy policy</p>
     <h1>Privacy policy: GitHub Repo Navigator</h1>
-    <p><em>Last updated: 2026-10-13</em></p>
+    <p><em>Last updated: 2026-11-03</em></p>
     <p class="lead">GitHub Repo Navigator is a Chrome extension that shows every GitHub repository you can access, organized into your own sections, in GitHub's ☰ menu and on the github.com dashboard. This policy explains what it handles and where that data goes.</p>
     <p class="lead"><strong>In short:</strong> the extension has no server and sends nothing to its developer or any third party. It talks only to GitHub, with read-only access to repository metadata, and keeps its data in your own browser. Its source code is public, so this can be checked.</p>
 
@@ -37,7 +37,7 @@
         <tbody>
           <tr><td>Your GitHub login name</td><td>GitHub's API, after you connect</td><td>To show who is connected and to recognise your own account.</td></tr>
           <tr><td>The login name of the account a github.com page is signed in as</td><td>The page itself (GitHub names it in a <code>user-login</code> tag)</td><td>To show that account's repositories and sections when you connect more than one account. Compared with your connected accounts and not stored.</td></tr>
-          <tr><td>Your GitHub user ID</td><td>GitHub's API, after you connect</td><td>To keep each connected account's data apart, and to record which account the first set of synced sections belongs to.</td></tr>
+          <tr><td>Your GitHub user ID</td><td>GitHub's API, after you connect</td><td>To keep each connected account's data apart, to record which account the first set of synced sections belongs to, and to record which GitHub App an account signs in through when it uses one of its own.</td></tr>
           <tr><td>GitHub access and refresh tokens</td><td>GitHub's device-flow sign-in, which you start</td><td>To read your repository list.</td></tr>
           <tr><td>Repository metadata: ID, owner, name, owner avatar URL, visibility, archived/fork flags, last push time</td><td>GitHub's API</td><td>To show and organize your repositories.</td></tr>
           <tr><td>GitHub App installations: account name and type, whether all or selected repositories are shared</td><td>GitHub's API</td><td>To tell you which accounts the app can see and what to fix.</td></tr>
@@ -53,7 +53,7 @@
       <h2>Where data is stored</h2>
       <ul>
         <li><p><strong>This device only</strong> (<code>chrome.storage.local</code>, restricted to the extension's own pages and background worker): tokens, your login name, the repository list and its cache metadata, kept separately for each GitHub account you connect. Content scripts running on github.com cannot read this area.</p></li>
-        <li><p><strong>Chrome Sync</strong> (<code>chrome.storage.sync</code>, only if you use Chrome Sync): your sections, their order and collapsed state, and the repository IDs in each; your GitHub App's client ID (a public identifier, not a secret) so another browser only has to connect; and whether you answered "How do you want to start?". Each connected GitHub account has its own sections, filed under its GitHub user ID. No tokens, names, descriptions or other repository details are synced. Chrome Sync is operated by Google under Google's privacy policy.</p></li>
+        <li><p><strong>Chrome Sync</strong> (<code>chrome.storage.sync</code>, only if you use Chrome Sync): your sections, their order and collapsed state, and the repository IDs in each; the client IDs of your GitHub Apps (public identifiers, not secrets) so another browser only has to connect, including, for an account that signs in through an app of its own, which app that is (by GitHub user ID); and whether you answered "How do you want to start?". Each connected GitHub account has its own sections, filed under its GitHub user ID. No tokens, names, descriptions or other repository details are synced. Chrome Sync is operated by Google under Google's privacy policy.</p></li>
         <li><p><strong>Files you choose to export</strong> ("Export sections"): your sections plus each listed repository's ID and <code>owner/name</code>, saved where you choose.</p></li>
       </ul>
     </section>

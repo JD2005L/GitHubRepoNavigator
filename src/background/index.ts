@@ -3,7 +3,7 @@ import { assignedIds, emptyLayout, isValidLayoutOp, unavailableCount, type Layou
 import { needsStartChoice, OPTIONS_TABS, PRIVILEGED_TYPES, type Broadcast, type Diagnostics, type NavState, type Onboarding, type Request, type Response } from '../shared/messages';
 import { UNCATEGORIZED_ID as UNCATEGORIZED } from '../shared/layout/model';
 import type { InventorySnapshot, LayoutSnapshot } from '../shared/types';
-import { accountPrefix, AuthManager, CLIENT_ID_KEY, type AccountAuth } from './auth/authManager';
+import { ACCOUNT_APPS_KEY, accountPrefix, AuthManager, CLIENT_ID_KEY, type AccountAuth } from './auth/authManager';
 import { CACHE_KEY, ETAGS_KEY, InventoryManager, RATE_LIMIT_KEY } from './inventoryManager';
 import { LayoutStore, MIRROR_KEY, type StorageAreaLike, type Timers } from './layoutStore';
 import { keysUnder, namespaced, ownKeys } from './namespacedArea';
@@ -259,7 +259,8 @@ async function diagnostics(account: Account | null): Promise<Diagnostics> {
     extensionVersion: chrome.runtime.getManifest().version,
     clientId: auth.clientId(),
     appSlug: CONFIG.appSlug,
-    accounts: auth.list().map((a) => ({ userId: a.userId, login: a.login, kind: a.state().kind })),
+    accounts: auth.list().map((a) => ({ userId: a.userId, login: a.login, kind: a.state().kind, app: a.app })),
+    ownApps: auth.ownApps().map((o) => ({ ...o, login: auth.account(o.userId)?.login ?? null })),
     account: account?.userId ?? null,
     auth: auth.state(account?.userId ?? null),
     connect: auth.state(),
@@ -329,6 +330,8 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
       return { ok: true, data: null };
     case 'auth/start': {
       await chrome.alarms.create(AUTH_ALARM, { periodInMinutes: 0.5 });
+      if (request.mode === 'add') return { ok: true, data: await auth.start({ mode: 'add', clientId: typeof request.clientId === 'string' ? request.clientId : '' }) };
+      if (request.mode === 'reconnect' && account) return { ok: true, data: await auth.start({ mode: 'reconnect', userId: account.userId }) };
       return { ok: true, data: await auth.start() };
     }
     case 'auth/cancel':
@@ -383,6 +386,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   void ready.then(() => {
     if (CLIENT_ID_KEY in changes) auth.syncedClientId(changes[CLIENT_ID_KEY].newValue);
+    if (ACCOUNT_APPS_KEY in changes) auth.syncedAccountApps(changes[ACCOUNT_APPS_KEY].newValue);
     const changed = Object.keys(changes);
     void each((account) => {
       const keys = ownKeys(account.syncPrefix, changed);

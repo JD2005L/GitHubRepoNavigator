@@ -638,11 +638,21 @@ test('keeps two GitHub accounts apart: each page shows the account it is signed 
     work.deviceSteps = ['pending', 'success'];
     server.use(work);
     await page.getByRole('tab', { name: 'Setup' }).click();
-    await page.getByRole('button', { name: 'Connect another account' }).click();
+    await page.getByRole('button', { name: 'Add another account' }).click();
+    await expect(page.getByRole('heading', { name: 'Add another GitHub account' })).toBeVisible();
+    // An ordinary account reuses the app the first one signs in through.
+    await page.getByRole('button', { name: /^The app @jd2005l uses/ }).click();
+    await expect(page.getByText('GitHub connects whichever account is signed in on github.com')).toBeVisible();
+    await page.getByRole('button', { name: 'Connect this account' }).click();
     await expect(page.locator('.code')).toHaveText('WDJB-MJHT');
     await expect(page.getByText('Check the avatar at the top of that page')).toBeVisible();
-    await expect(page.getByText(/Connected as @jd-work/)).toBeVisible({ timeout: 20_000 });
+    // Once it appears, the page shows the new account with its own setup guide.
+    await expect(page.getByText('Connected @jd-work. This page now shows it.')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Getting started with @jd-work' })).toBeVisible();
+    await expect(page.getByLabel('GitHub account', { exact: true })).toHaveValue('jd-work');
+    await expect(page.getByText(/Connected as @jd-work/)).toBeVisible();
     await expect(page.getByText(/Connected as @jd2005l/)).toBeVisible();
+    expect(work.deviceCodeClientIds).toEqual([CLIENT_ID]);
     // The open page picks up its account without a reload, with only that account's repositories.
     await expect(rows(nav)).toHaveCount(12, { timeout: 20_000 });
     await expect(repoRow(nav, 301)).toHaveCount(1);
@@ -665,6 +675,63 @@ test('keeps two GitHub accounts apart: each page shows the account it is signed 
     await page.getByLabel('GitHub account', { exact: true }).selectOption('jd2005l');
     await expect(page.getByText('255', { exact: true })).toBeVisible();
     await page.close();
+  } finally {
+    await close(device);
+  }
+});
+
+test('adds a managed work account through an app of its own, starting from the GitHub menu', async () => {
+  const device = await launch();
+  const WORK_APP = 'Iv23liE2eWorkApp001';
+  try {
+    device.login = 'jd2005l';
+    const first = await signIn(device, releaseFixture());
+
+    // github.com is signed in as a managed account that is not connected: the menu offers to connect it, and
+    // Options opens on adding that account.
+    device.login = 'james-levac_goa';
+    const github = await githubPage(device);
+    const nav = await openDrawer(github);
+    const opened = device.context.waitForEvent('page');
+    await nav.getByRole('button', { name: 'Connect @james-levac_goa' }).click();
+    const page = await opened;
+    await expect(page.getByRole('heading', { name: 'Add @james-levac_goa' })).toBeVisible();
+    await expect(page.getByText(/managed account of the “goa” enterprise/)).toBeVisible();
+    // For a managed account the separate app comes first, recommended.
+    await expect(page.locator('.path-option').first()).toContainText('A separate app for this account (recommended)');
+    await page.getByRole('button', { name: /^A separate app for this account/ }).click();
+    await expect(page.getByText('Sign in to github.com as @james-levac_goa first')).toBeVisible();
+    // A name of its own: GitHub already has the first app's.
+    await expect(page.getByRole('textbox', { name: 'GitHub App name' })).toHaveValue(/^Repo Navigator \w+$/);
+    await page.screenshot({ path: join(SHOTS, 'options-add-managed.png'), fullPage: true });
+    await page.getByLabel('GitHub App client ID').fill(WORK_APP);
+    await page.getByRole('button', { name: 'Save client ID' }).click();
+
+    const work = new MockGitHub({ userRepos: [], login: 'james-levac_goa' });
+    work.userId = 3003;
+    work.deviceSteps = ['pending', 'success'];
+    server.use(work);
+    await page.getByRole('button', { name: 'Connect this account' }).click();
+    await expect(page.locator('.code')).toHaveText('WDJB-MJHT');
+    await expect(page.getByText('Connected @james-levac_goa. This page now shows it.')).toBeVisible({ timeout: 20_000 });
+    expect(work.deviceCodeClientIds).toEqual([WORK_APP]);
+
+    // Its guide never asks to install the app on the managed account itself.
+    await expect(page.getByText(/GitHub does not let managed accounts install apps on themselves/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.account-row').filter({ hasText: '@james-levac_goa' })).toContainText('Signs in through its own GitHub App');
+    // Chrome Sync gets only which app it uses, by user ID; the first account stays on the default app.
+    const items = await page.evaluate(() => chrome.storage.sync.get(null));
+    expect(items['config.clientId']).toBe(CLIENT_ID);
+    expect(items['config.accountApps']).toEqual({ 3003: WORK_APP });
+    await page.screenshot({ path: join(SHOTS, 'options-managed-install.png'), fullPage: true });
+
+    // An organization owner installs it: setup for this account is done.
+    work.installations = [{ id: 91, account: 'goa-org', type: 'Organization', selection: 'all', repos: [401, 402, 403] }];
+    await page.getByRole('button', { name: 'Check again' }).click();
+    await expect(page.getByRole('heading', { name: 'You’re all set with @james-levac_goa' })).toBeVisible({ timeout: 20_000 });
+    await github.close();
+    await page.close();
+    await first.close();
   } finally {
     await close(device);
   }
