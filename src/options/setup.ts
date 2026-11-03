@@ -82,6 +82,46 @@ export function parseAppSlug(input: string): string | null {
   return slug && slug !== 'new' && slug !== 'authorizations' && SLUG_RE.test(slug) ? slug : null;
 }
 
+/** The GitHub App's description, shown to people when they install it. */
+export const APP_DESCRIPTION = 'Read-only repository metadata for the GitHub Repo Navigator Chrome extension, which lists every repository you can access in GitHub’s navigation menu.';
+
+/** One field of GitHub's new GitHub App form and what this extension needs in it. */
+export interface AppFormField {
+  /** Stable key, for tests and for updating a shown value in place. */
+  id: string;
+  /** The form's own label, so people can find it on GitHub's page. */
+  label: string;
+  /** What to type or choose. */
+  value: string;
+  /** Text to put in the field, shown with a Copy button. */
+  copy?: string;
+  /** GitHub cannot pre-fill this one, so the person always has to change it. */
+  mustChange?: boolean;
+}
+
+/**
+ * Every field on GitHub's new GitHub App form, top to bottom, and what goes in it. The pre-filled form only needs
+ * Enable Device Flow ticked, but GitHub can open the form empty (or someone opens it by hand), so the setup page
+ * lists every field rather than trusting the pre-fill.
+ * https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app
+ */
+export function appFormFields(w: Wizard): AppFormField[] {
+  return [
+    { id: 'name', label: 'GitHub App name', value: 'Required. Any name nobody else on GitHub uses; this one has a random ending for that reason.', copy: w.name.trim() },
+    { id: 'description', label: 'Description', value: 'Optional. Leave it empty or write anything; people see it when they install the app.' },
+    { id: 'homepage', label: 'Homepage URL', value: 'Required. This extension’s page, or any web address you own.', copy: PROJECT_URL },
+    { id: 'callback', label: 'Callback URL', value: 'Leave it empty. Device Flow sign-in never redirects back, so nothing goes here.' },
+    { id: 'expire', label: 'Expire user authorization tokens', value: 'Leave it checked. The extension renews its sign-in by itself.' },
+    { id: 'oauth', label: 'Request user authorization (OAuth) during installation', value: 'Leave it unchecked.' },
+    { id: 'device-flow', label: 'Enable Device Flow', value: 'Check it. This is how the extension signs in, and the one box GitHub does not let us tick for you.', mustChange: true },
+    { id: 'setup-url', label: 'Setup URL', value: 'Leave it empty, and leave Redirect on update unchecked.' },
+    { id: 'webhook', label: 'Webhook → Active', value: 'Uncheck it. Webhook URL and Secret then disappear: there is no server to send events to.' },
+    { id: 'permissions', label: 'Permissions → Repository permissions → Metadata', value: 'Read-only. Leave every other repository, organization and account permission at No access.' },
+    { id: 'events', label: 'Subscribe to events', value: 'Leave every box unchecked.' },
+    { id: 'where', label: 'Where can this GitHub App be installed?', value: 'Any account, so it can also be installed on organizations you belong to. This does not share your data with anyone.' },
+  ];
+}
+
 /**
  * GitHub's "register an app with URL parameters" form, pre-filled with everything GitHub lets a URL set.
  * Device Flow is the one required setting it cannot pre-fill.
@@ -91,7 +131,7 @@ export function newAppUrl(w: Wizard): string {
   const base = w.owner === 'org' ? `https://github.com/organizations/${encodeURIComponent(w.org.trim())}/settings/apps/new` : NEW_APP_URL;
   const url = new URL(base);
   url.searchParams.set('name', w.name.trim());
-  url.searchParams.set('description', 'Read-only repository metadata for the GitHub Repo Navigator Chrome extension, which lists every repository you can access in GitHub’s navigation menu.');
+  url.searchParams.set('description', APP_DESCRIPTION);
   url.searchParams.set('url', PROJECT_URL);
   url.searchParams.set('public', 'true');
   url.searchParams.set('request_oauth_on_install', 'false');

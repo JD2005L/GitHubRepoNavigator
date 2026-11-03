@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Diagnostics } from '../../src/shared/messages';
 import type { InstallationSummary } from '../../src/shared/types';
-import { appSettingsUrl, clientIdProblem, defaultWizard, installUrl, newAppUrl, parseAppSlug, parseWizard, setupProgress, slugFor, verifySlug } from '../../src/options/setup';
+import { APP_DESCRIPTION, appFormFields, appSettingsUrl, clientIdProblem, defaultWizard, installUrl, newAppUrl, parseAppSlug, parseWizard, setupProgress, slugFor, verifySlug } from '../../src/options/setup';
 
 const install = (over: Partial<InstallationSummary> = {}): InstallationSummary => ({
   id: 71,
@@ -98,6 +98,33 @@ describe('app addresses', () => {
     expect(Object.fromEntries(user.searchParams)).toMatchObject({ name: 'Repo Navigator x', public: 'true', webhook_active: 'false', request_oauth_on_install: 'false', metadata: 'read' });
     const org = new URL(newAppUrl({ ...w, owner: 'org', org: ' acme ' }));
     expect(org.pathname).toBe('/organizations/acme/settings/apps/new');
+  });
+
+  it('lists every field of GitHub’s form with what goes in it, agreeing with the pre-filled link', () => {
+    const w = { ...defaultWizard(() => 0.5), name: ' Repo Navigator x ' };
+    const fields = appFormFields(w);
+    expect(fields.map((f) => f.label)).toEqual([
+      'GitHub App name',
+      'Description',
+      'Homepage URL',
+      'Callback URL',
+      'Expire user authorization tokens',
+      'Request user authorization (OAuth) during installation',
+      'Enable Device Flow',
+      'Setup URL',
+      'Webhook → Active',
+      'Permissions → Repository permissions → Metadata',
+      'Subscribe to events',
+      'Where can this GitHub App be installed?',
+    ]);
+    expect(fields.every((f) => f.value.length > 0)).toBe(true);
+    // Device Flow is the one setting the link cannot pre-fill, so it is the one marked as always needing a change.
+    expect(fields.filter((f) => f.mustChange).map((f) => f.id)).toEqual(['device-flow']);
+    // The values offered to copy are the ones the link pre-fills.
+    const prefilled = new URL(newAppUrl(w)).searchParams;
+    expect(fields.find((f) => f.id === 'name')?.copy).toBe(prefilled.get('name'));
+    expect(fields.find((f) => f.id === 'homepage')?.copy).toBe(prefilled.get('url'));
+    expect(prefilled.get('description')).toBe(APP_DESCRIPTION);
   });
 
   it('links to the app settings and install pages', () => {

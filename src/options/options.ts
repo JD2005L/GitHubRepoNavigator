@@ -7,6 +7,7 @@ import { chunkOps, exportSections, opsForPlan, parseSectionsFile, planImport, pl
 import { isBroadcast, OPTIONS_TABS, type Diagnostics, type NavState, type OptionsTab, type Request, type Response } from '../shared/messages';
 import type { AuthState, RepoHint, RepoId } from '../shared/types';
 import {
+  appFormFields,
   appSettingsUrl,
   clientIdProblem,
   defaultWizard,
@@ -18,11 +19,11 @@ import {
   ORG_RE,
   parseAppSlug,
   parseWizard,
-  PROJECT_URL,
   setupProgress,
   slugFor,
   verifySlug,
   WIZARD_KEY,
+  type AppFormField,
   type SetupProgress,
   type SetupStep,
   type Wizard,
@@ -213,6 +214,37 @@ function button(label: string, onClick: () => void, className = ''): HTMLButtonE
 
 function link(label: string, href: string, className = ''): HTMLAnchorElement {
   return h('a', { href, target: '_blank', rel: 'noopener noreferrer', className }, label);
+}
+
+/** Copies what `text` returns when clicked (read then, so a value edited since render is copied as shown). */
+function copyButton(text: () => string, label: string): HTMLButtonElement {
+  const b = button('Copy', () => {
+    void navigator.clipboard.writeText(text()).then(
+      () => {
+        b.textContent = 'Copied';
+      },
+      () => undefined,
+    );
+  }, 'small');
+  b.setAttribute('aria-label', `Copy ${label}`);
+  return b;
+}
+
+/** GitHub's new GitHub App form, field by field in the form's order, with what goes in each one. */
+function appFormList(fields: AppFormField[]): HTMLElement {
+  return h(
+    'dl',
+    { className: 'form-fields' },
+    ...fields.map((field) => {
+      const shown = field.copy !== undefined ? h('code', {}, field.copy) : null;
+      return h(
+        'div',
+        { className: field.mustChange ? 'must' : null, 'data-field': field.id },
+        h('dt', {}, field.label),
+        h('dd', {}, shown ? h('span', { className: 'copy-line' }, shown, copyButton(() => shown.textContent ?? '', field.label)) : null, h('span', { className: shown ? 'muted' : null }, field.value)),
+      );
+    }),
+  );
 }
 
 function when(at: number | null): string {
@@ -476,11 +508,15 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
     wizard.org = orgInput.value;
     saveWizard();
   });
+  const fields = appFormList(appFormFields(wizard));
   const nameInput = h('input', { type: 'text', maxlength: 34, 'aria-label': 'GitHub App name', spellcheck: 'false', autocomplete: 'off', 'data-key': 'wizard-name' });
   nameInput.value = wizard.name;
   nameInput.addEventListener('input', () => {
     wizard.name = nameInput.value;
     saveWizard();
+    // The field list repeats the name; keep it in step without a re-render (which would steal focus).
+    const shown = fields.querySelector('[data-field="name"] code');
+    if (shown) shown.textContent = wizard.name.trim();
   });
   const openForm = () => {
     if (!wizard.name.trim()) {
@@ -519,26 +555,18 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
       h(
         'li',
         {},
-        h('p', {}, h('strong', {}, 'On GitHub, tick one box and create.'), ' Everything is filled in except one setting GitHub does not let us pre-fill:'),
+        h(
+          'p',
+          {},
+          h('strong', {}, 'On GitHub, check the form, tick Enable Device Flow, and create.'),
+          ' The form should open filled in, so usually that one box is the only change. If a field is empty or different, set it as shown here. The fields are in the same order as on GitHub’s page:',
+        ),
+        fields,
         h(
           'ul',
           { className: 'plain' },
-          h('li', {}, 'Scroll down to ', h('strong', {}, 'Identifying and authorizing users'), ' and check ', h('strong', {}, 'Enable Device Flow'), '. Leave the other boxes there as they are.'),
-          h('li', {}, 'Scroll to the very bottom and click ', h('strong', {}, 'Create GitHub App'), '.'),
+          h('li', {}, 'Then scroll to the very bottom and click ', h('strong', {}, 'Create GitHub App'), '.'),
           h('li', {}, 'If GitHub says the name is taken, change the name above and open the form again.'),
-        ),
-        h(
-          'details',
-          { className: 'guide', 'data-key': 'wizard-prefilled' },
-          h('summary', {}, 'What was pre-filled (in case you want to check)'),
-          h(
-            'ul',
-            { className: 'plain' },
-            h('li', {}, h('strong', {}, 'Homepage URL'), ': this extension’s project page.'),
-            h('li', {}, h('strong', {}, 'Webhook → Active'), ': off. There is no server.'),
-            h('li', {}, h('strong', {}, 'Repository permissions → Metadata'), ': Read-only. Nothing else is selected, so the app cannot change anything.'),
-            h('li', {}, h('strong', {}, 'Where can this GitHub App be installed?'), ': Any account, so it can be installed on organizations you belong to. This does not share your data with anyone.'),
-          ),
         ),
       ),
       h(
@@ -550,7 +578,6 @@ function newAppStage(d: Diagnostics): (Node | string)[] {
       ),
     ),
     h('p', { className: 'muted' }, 'Already have a GitHub App with Device Flow enabled and Metadata: Read-only? Just paste its client ID above.'),
-    clientIdGuide('guide-setup', 'Prefer to set it up by hand? Full manual steps'),
   ];
 }
 
@@ -738,12 +765,7 @@ function clientIdGuide(key: string, summary: string): HTMLElement {
       'ol',
       {},
       step('Open ', link('GitHub → Settings → Developer settings → GitHub Apps → New GitHub App', NEW_APP_URL), '. To have an organization own the app, start from that organization’s settings instead.'),
-      step(h('strong', {}, 'GitHub App name'), ': anything unique, e.g. "Repo Navigator (yourname)". ', h('strong', {}, 'Homepage URL'), ': ', link(PROJECT_URL, PROJECT_URL), ' or any URL you own.'),
-      step(h('strong', {}, 'Callback URL'), ': leave empty. Uncheck ', h('strong', {}, 'Request user authorization (OAuth) during installation'), '.'),
-      step('Check ', h('strong', {}, 'Enable Device Flow'), ' (required). Leave ', h('strong', {}, 'Expire user authorization tokens'), ' checked; the extension renews tokens itself.'),
-      step(h('strong', {}, 'Webhook'), ': uncheck ', h('strong', {}, 'Active'), '. There is no server.'),
-      step(h('strong', {}, 'Permissions → Repository permissions → Metadata'), ': Read-only. Select nothing else, and no organization or account permissions.'),
-      step(h('strong', {}, 'Where can this GitHub App be installed?'), ' Choose ', h('strong', {}, 'Any account'), ' if you want it on organizations or accounts you do not own. A private app only works inside the account that owns it.'),
+      step('Fill in the form, top to bottom:', appFormList(appFormFields(wizard))),
       step('Click ', h('strong', {}, 'Create GitHub App'), ', then copy the ', h('strong', {}, 'Client ID'), ' (it starts with ', h('code', {}, 'Iv'), '). Do not generate a client secret or private key; they are not used.'),
       step('On the app’s page, choose ', h('strong', {}, 'Install App'), ' and install it on your account and on every organization whose repositories you want listed, with ', h('strong', {}, 'All repositories'), '.'),
       step('Paste the client ID below and choose ', h('strong', {}, 'Save client ID'), ', then ', h('strong', {}, 'Connect GitHub'), '.'),

@@ -558,6 +558,39 @@ test('starting with one list answers the first-run question everywhere', async (
   }
 });
 
+test('first-time setup says what goes in every field of GitHub’s new-app form', async () => {
+  const device = await launch();
+  try {
+    const page = await options(device);
+    await page.getByRole('button', { name: /^This is my first time/ }).click();
+    const fields = page.locator('#setup dl.form-fields');
+    await expect(fields.locator('dt')).toHaveText([
+      'GitHub App name',
+      'Description',
+      'Homepage URL',
+      'Callback URL',
+      'Expire user authorization tokens',
+      'Request user authorization (OAuth) during installation',
+      'Enable Device Flow',
+      'Setup URL',
+      'Webhook → Active',
+      'Permissions → Repository permissions → Metadata',
+      'Subscribe to events',
+      'Where can this GitHub App be installed?',
+    ]);
+    await expect(fields.locator('[data-field="homepage"] code')).toHaveText('https://levac.net/repo-navigator/');
+    await expect(fields.locator('.must')).toHaveAttribute('data-field', 'device-flow');
+    // Renaming the app updates the name shown (and copied) in the list.
+    await page.getByRole('textbox', { name: 'GitHub App name' }).fill('Repo Navigator e2e');
+    await expect(fields.locator('[data-field="name"] code')).toHaveText('Repo Navigator e2e');
+    await expect(fields.getByRole('button', { name: 'Copy GitHub App name' })).toBeVisible();
+    await page.screenshot({ path: join(SHOTS, 'options-new-app.png'), fullPage: true });
+    await page.close();
+  } finally {
+    await close(device);
+  }
+});
+
 test('another browser reuses the existing GitHub App: no app creation, just the client ID and Connect', async () => {
   const device = await launch();
   try {

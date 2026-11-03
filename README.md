@@ -69,8 +69,8 @@ The settings page walks you through this on its *Setup* tab, with a checklist th
 
 1. **Create your GitHub App.** The extension signs in through a small GitHub App that you own, limited to
    read-only repository metadata. The guide opens GitHub's *New GitHub App* form with everything pre-filled
-   except **Enable Device Flow** (GitHub does not allow pre-filling that one), tells you where that checkbox is, and
-   asks you to paste the app's **Client ID** back.
+   except **Enable Device Flow** (GitHub does not allow pre-filling that one), lists what goes in every field of
+   the form in case any arrives empty, and asks you to paste the app's **Client ID** back.
 2. **Connect this browser.** Click *Connect GitHub*, enter the short code it shows on github.com, and click
    *Authorize*.
 3. **Let the app see your repositories.** Install the app on your account with **All repositories**. Until it is
@@ -88,20 +88,27 @@ and sections are already there, so setup starts at *Connect GitHub*.
 
 1. GitHub → **Settings → Developer settings → GitHub Apps → New GitHub App** (or an organization's settings, if
    the organization should own it).
-2. **GitHub App name**: anything unique, e.g. `Repo Navigator (yourname)`. **Homepage URL**:
-   `https://jd2005l.github.io/GitHubRepoNavigator/`, or any URL you own.
-3. **Callback URL**: leave empty. Uncheck **Request user authorization (OAuth) during installation**.
-4. **Enable Device Flow**: checked (required).
-5. **Expire user authorization tokens**: leave checked (the extension renews tokens itself).
-6. **Webhook**: uncheck **Active** (there is no server).
-7. **Permissions → Repository permissions → Metadata: Read-only**, and **nothing else**. No organization or
-   account permissions.
-8. **Where can this GitHub App be installed?** **Any account**, if you want it on organizations or accounts you do
-   not own. A private app can only be installed inside the account that owns it.
-9. Create the app and copy its **Client ID** (it starts with `Iv`). Do **not** generate a client secret or a private
-   key; the extension never uses them.
-10. **Install** the app (the app's page → *Install App*) on your account and every organization whose repositories
-    you want listed, with **All repositories**.
+2. Fill in the form, top to bottom:
+
+   | Field | What to enter |
+   | --- | --- |
+   | **GitHub App name** | Anything nobody else on GitHub uses, e.g. `Repo Navigator (yourname)`. |
+   | **Description** | Optional. Leave it empty or write anything. |
+   | **Homepage URL** | `https://levac.net/repo-navigator/`, or any URL you own. |
+   | **Callback URL** | Leave empty. Device Flow sign-in never redirects back. |
+   | **Expire user authorization tokens** | Leave checked (the extension renews tokens itself). |
+   | **Request user authorization (OAuth) during installation** | Leave unchecked. |
+   | **Enable Device Flow** | **Check it (required).** |
+   | **Setup URL** | Leave empty, and leave **Redirect on update** unchecked. |
+   | **Webhook → Active** | Uncheck it. **Webhook URL** and **Secret** then disappear (there is no server). |
+   | **Permissions → Repository permissions → Metadata** | **Read-only**, and nothing else. No organization or account permissions. |
+   | **Subscribe to events** | Leave every box unchecked. |
+   | **Where can this GitHub App be installed?** | **Any account**, if you want it on organizations or accounts you do not own. A private app can only be installed inside the account that owns it. |
+
+3. Click **Create GitHub App** and copy its **Client ID** (it starts with `Iv`). Do **not** generate a client secret
+   or a private key; the extension never uses them.
+4. **Install** the app (the app's page → *Install App*) on your account and every organization whose repositories
+   you want listed, with **All repositories**.
 
 Give the client ID to the extension on the settings page (*Save client ID*), or bake it into a build:
 `GRN_GITHUB_CLIENT_ID=Iv23li… GRN_GITHUB_APP_SLUG=your-app-slug npm run build`, or copy
