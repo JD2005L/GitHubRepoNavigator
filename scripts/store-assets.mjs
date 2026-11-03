@@ -1,18 +1,19 @@
 // Collects everything the Chrome Web Store submission needs into one folder:
 //   release/chrome-web-store-<version>/
 //     1-upload-this.zip            the package (built by `node scripts/build.mjs --store`)
-//     SUBMIT.html / SUBMIT.md      every dashboard field under its exact label, ready to paste (Copy buttons in .html)
+//     SUBMIT.html / SUBMIT.md      every dashboard field under its exact label, ready to paste (Copy buttons in .html),
+//                                  each marked with the release it last changed in (written last, by store-submit.mjs)
 //     PRIVACY.md                   the privacy policy (also published in the repository)
 //     images/store-icon-128.png    store icon
 //     images/promo-tile-440x280.png  small promo tile (rendered here with Playwright)
 //     images/screenshots/          five 1280x800 screenshots (sample data), made by e2e/store/screenshots.store.ts
 // Run through `npm run package`, after the store build.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { storeListing } from './store-listing.mjs';
-import { checkLimits, renderHtml, renderMarkdown } from './submit-page.mjs';
+import { checkLimits } from './submit-page.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -29,11 +30,9 @@ copyFileSync(icon, join(out, 'images', 'store-icon-128.png'));
 copyFileSync(join(root, 'PRIVACY.md'), join(out, 'PRIVACY.md'));
 // images/screenshots/ is filled by `npm run package:screenshots` (part of `npm run package`).
 
-// The submission, field by field (scripts/store-listing.mjs): a page with copy buttons, and the same as Markdown.
-const tabs = storeListing(version);
-checkLimits(tabs);
-writeFileSync(join(out, 'SUBMIT.html'), renderHtml(tabs, version));
-writeFileSync(join(out, 'SUBMIT.md'), renderMarkdown(tabs, version));
+// Fail early if a listing value no longer fits its dashboard field. SUBMIT.html and SUBMIT.md are written last, by
+// scripts/store-submit.mjs, because marking what changed compares the screenshots, which do not exist yet.
+checkLimits(storeListing(version));
 
 // Small promo tile, 440x280.
 const iconData = readFileSync(icon).toString('base64');

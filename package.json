@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "test:e2e": "node scripts/build.mjs --e2e && playwright test",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e",
-    "package": "node scripts/build.mjs --store && node scripts/store-assets.mjs && npm run package:screenshots",
+    "package": "node scripts/build.mjs --store && node scripts/store-assets.mjs && npm run package:screenshots && node scripts/store-submit.mjs",
     "package:screenshots": "node scripts/build.mjs --e2e && playwright test -c playwright.store.config.ts"
   },
   "devDependencies": {
