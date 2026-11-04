@@ -42,7 +42,7 @@ img{width:96px;height:96px;flex:none;filter:drop-shadow(0 6px 16px rgba(0,0,0,.5
 h1{font-size:27px;line-height:1.15;margin:0 0 10px;font-weight:700}
 p{margin:0;font-size:15px;line-height:1.4;color:#9198a1}
 b{color:#4493f8;font-weight:600}
-</style></head><body><img src="data:image/png;base64,${iconData}" alt=""><div><h1>GitHub Repo Navigator</h1><p>Every repository you can access, <b>organized into your own sections</b>, right in GitHub's menu.</p></div></body></html>`;
+</style></head><body><img src="data:image/png;base64,${iconData}" alt=""><div><h1>Repo Navigator</h1><p>Every repository you can access, <b>organized into your own sections</b>, right in GitHub's menu.</p></div></body></html>`;
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 440, height: 280 } });

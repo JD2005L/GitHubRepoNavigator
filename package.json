@@ -1,6 +1,6 @@
 {
   "name": "github-repo-navigator",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "Chrome MV3 extension that replaces GitHub's Top repositories drawer section with a complete, categorized, synced repository navigator.",

@@ -49,7 +49,7 @@ export function parseSectionsFile(text: string): { ok: true; file: SectionsFile 
   const bad = (error: string) => ({ ok: false as const, error });
   if (!raw || typeof raw !== 'object') return bad('That file is not a sections file.');
   const r = raw as Record<string, unknown>;
-  if (r.format !== SECTIONS_FORMAT) return bad('That file is not a GitHub Repo Navigator sections file.');
+  if (r.format !== SECTIONS_FORMAT) return bad('That file is not a Repo Navigator sections file.');
   if (r.version !== SECTIONS_VERSION) return bad('That sections file was made by a newer version of the extension. Update the extension, then import it.');
   if (!Array.isArray(r.sections)) return bad('That sections file has no sections.');
   if (r.sections.length > MAX_SECTIONS) return bad(`That file has more than ${MAX_SECTIONS} sections.`);

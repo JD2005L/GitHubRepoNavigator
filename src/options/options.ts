@@ -1706,7 +1706,7 @@ function paint(): void {
     'header',
     { className: 'page' },
     h('img', { src: 'icons/icon48.png', alt: '' }),
-    h('div', {}, h('h1', {}, 'GitHub Repo Navigator'), h('div', { className: 'version' }, d ? `Version ${d.extensionVersion}` : '')),
+    h('div', {}, h('h1', {}, 'Repo Navigator'), h('div', { className: 'version' }, d ? `Version ${d.extensionVersion}` : '')),
   );
   const status = message ? h('p', { className: message.kind === 'ok' ? 'ok' : 'notice', role: message.kind === 'bad' ? 'alert' : 'status' }, message.text) : null;
   if (!d) {
@@ -1718,7 +1718,7 @@ function paint(): void {
     : h(
         'p',
         { className: 'notice', role: 'alert' },
-        'Site access is restricted for this extension, so it cannot sign in or show the navigator on github.com. On chrome://extensions → GitHub Repo Navigator → Details → Site access, allow github.com and api.github.com.',
+        'Site access is restricted for this extension, so it cannot sign in or show the navigator on github.com. On chrome://extensions → Repo Navigator → Details → Site access, allow github.com and api.github.com.',
       );
   // While setup is on its create/connect stages, the guide is the connection UI; afterwards the normal card shows.
   activeTab ??= defaultTab(d);

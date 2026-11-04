@@ -71,7 +71,7 @@ async function close(device: Device) {
 async function options(device: Device): Promise<Page> {
   const page = await device.context.newPage();
   await page.goto(`chrome-extension://${device.extensionId}/options.html`);
-  await expect(page.getByRole('heading', { name: 'GitHub Repo Navigator' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Repo Navigator' })).toBeVisible();
   return page;
 }
 
@@ -132,7 +132,7 @@ async function syncItems(device: Device): Promise<Record<string, unknown>> {
   return items;
 }
 
-test.describe.serial('GitHub Repo Navigator in Chromium', () => {
+test.describe.serial('Repo Navigator in Chromium', () => {
   let device: Device;
   let mock: MockGitHub;
   /** [in Work, in Side projects], recorded by the editing test for the later persistence/sync checks. */

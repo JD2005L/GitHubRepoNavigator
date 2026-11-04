@@ -281,7 +281,7 @@ export function decodeSyncItems(items: Record<string, unknown>, currentSchema: n
       status: 'readonly',
       layout,
       head,
-      reason: `Your sections were saved by a newer version of GitHub Repo Navigator (schema ${head.v}). Update the extension on this device to edit them.`,
+      reason: `Your sections were saved by a newer version of Repo Navigator (schema ${head.v}). Update the extension on this device to edit them.`,
     };
   }
 

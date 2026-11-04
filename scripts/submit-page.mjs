@@ -33,7 +33,7 @@ export function renderMarkdown(tabs, version, history) {
   const previous = lastRelease(history, version);
   const changed = tabs.flatMap((t) => t.fields.filter((f) => history.fields[`${t.tab} › ${f.label}`].since === version).map((f) => `- ${t.tab} › ${f.label}`));
   const out = [
-    `# Chrome Web Store submission: GitHub Repo Navigator ${version}`,
+    `# Chrome Web Store submission: Repo Navigator ${version}`,
     '',
     'One section per Developer Dashboard tab, in order. Each field is under its exact label; paste the block below it.',
     'SUBMIT.html has the same content with Copy buttons, and can highlight changes since any earlier release.',
@@ -158,7 +158,7 @@ export function renderHtml(tabs, version, history) {
     )
     .join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Store submission: GitHub Repo Navigator ${esc(version)}</title>
+<title>Store submission: Repo Navigator ${esc(version)}</title>
 <style>
 :root{--bg:#0d1117;--card:#151b23;--border:#3d444d;--fg:#f0f6fc;--muted:#9198a1;--accent:#4493f8;--ok:#3fb950;--code:#010409;--chg:#e3b341;color-scheme:dark}
 *{box-sizing:border-box}
@@ -207,7 +207,7 @@ details.diff pre{margin:6px 0 0;padding:8px 10px;background:var(--code);border:1
 .del{display:block;background:rgba(248,81,73,.15);color:#ffa198;text-decoration:line-through}
 .gap{display:block;color:var(--muted)}
 </style></head><body>
-<header><h1>Chrome Web Store submission: GitHub Repo Navigator ${esc(version)}</h1><nav>${nav}</nav>
+<header><h1>Chrome Web Store submission: Repo Navigator ${esc(version)}</h1><nav>${nav}</nav>
 <div class="baseline"><label>The dashboard has <select id="baseline">${history.versions
     .filter((v) => v !== version)
     .reverse()

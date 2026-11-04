@@ -62,7 +62,7 @@ export function createManifest({ e2e: isE2e, publicKey }) {
   const icons = { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' };
   const manifest = {
     manifest_version: 3,
-    name: isE2e ? 'GitHub Repo Navigator (e2e)' : 'GitHub Repo Navigator',
+    name: isE2e ? 'Repo Navigator (e2e)' : 'Repo Navigator',
     version: pkg.version,
     description: 'Every GitHub repository you can access, organized into your own synced sections, in GitHub’s menu and dashboard.',
     // 140+: storage.local.setAccessLevel keeps the token store away from content scripts.
@@ -74,7 +74,7 @@ export function createManifest({ e2e: isE2e, publicKey }) {
     options_ui: { page: 'options.html', open_in_tab: true },
     // No other extension and no web page may message this one.
     externally_connectable: { ids: [] },
-    action: { default_title: 'GitHub Repo Navigator', default_icon: icons },
+    action: { default_title: 'Repo Navigator', default_icon: icons },
     icons,
   };
   if (isE2e) manifest.host_permissions.push('http://127.0.0.1/*');

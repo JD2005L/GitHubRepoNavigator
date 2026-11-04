@@ -158,7 +158,7 @@ export function parseAppSlug(input: string): string | null {
 }
 
 /** The GitHub App's description, shown to people when they install it. */
-export const APP_DESCRIPTION = 'Read-only repository metadata for the GitHub Repo Navigator Chrome extension, which lists every repository you can access in GitHub’s navigation menu.';
+export const APP_DESCRIPTION = 'Read-only repository metadata for the Repo Navigator Chrome extension, which lists every repository you can access in GitHub’s navigation menu.';
 
 /** One field of GitHub's new GitHub App form and what this extension needs in it. */
 export interface AppFormField {

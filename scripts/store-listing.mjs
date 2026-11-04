@@ -11,7 +11,7 @@
 // Public product pages on levac.net, which the Chrome Web Store listing links to.
 const SITE = 'https://levac.net/repo-navigator/';
 
-const DESCRIPTION = `GitHub shows about ten "Top repositories" and hides the rest behind "Show more". GitHub Repo Navigator replaces that short list with every repository you can access, organized into your own sections.
+const DESCRIPTION = `GitHub shows about ten "Top repositories" and hides the rest behind "Show more". Repo Navigator replaces that short list with every repository you can access, organized into your own sections.
 
 WHERE IT SHOWS UP
 • GitHub's ☰ menu (top-left of any github.com page)
@@ -34,7 +34,9 @@ PRIVATE BY DESIGN
 • Tokens stay on your device and are never synced.
 
 SETUP (about three minutes, once)
-The extension signs in through a small GitHub App that you own, limited to read-only metadata. The settings page opens GitHub's form already filled in, tells you the one box to tick, then connects with a short code. More: ${SITE}`;
+The extension signs in through a small GitHub App that you own, limited to read-only metadata. The settings page opens GitHub's form already filled in, tells you the one box to tick, then connects with a short code. More: ${SITE}
+
+Repo Navigator is an independent project, not affiliated with or endorsed by GitHub, Inc. GitHub is a trademark of GitHub, Inc.`;
 
 const TEST_INSTRUCTIONS = `Uses the reviewer's own GitHub account; no test account.
 1. Click the icon; "Getting started" opens a prefilled New GitHub App form: tick "Enable Device Flow", create it, paste the Client ID.
@@ -52,7 +54,7 @@ export function storeListing(version) {
     {
       tab: 'Store listing',
       fields: [
-        { label: 'Title', kind: 'info', value: 'GitHub Repo Navigator', note: 'Taken from the package (manifest name).' },
+        { label: 'Title', kind: 'info', value: 'Repo Navigator', note: 'Taken from the package (manifest name).' },
         { label: 'Summary', kind: 'info', value: 'Every GitHub repository you can access, organized into your own synced sections, in GitHub’s menu and dashboard.', note: 'Taken from the package (manifest description).' },
         { label: 'Description', required: true, kind: 'text', limit: 16000, value: DESCRIPTION },
         { label: 'Category', required: true, kind: 'choice', value: 'Developer Tools' },

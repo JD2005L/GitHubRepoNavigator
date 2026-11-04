@@ -1,8 +1,8 @@
-# Privacy policy: GitHub Repo Navigator
+# Privacy policy: Repo Navigator
 
-*Last updated: 2026-11-03*
+*Last updated: 2026-11-04*
 
-GitHub Repo Navigator is a Chrome extension that shows every GitHub repository you can access, organized into
+Repo Navigator is a Chrome extension that shows every GitHub repository you can access, organized into
 your own sections, in GitHub's ☰ menu and on the github.com dashboard. This policy explains what it handles and
 where that data goes.
 

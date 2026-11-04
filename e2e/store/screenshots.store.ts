@@ -148,7 +148,7 @@ li::before{content:"";position:absolute;left:2px;top:6px;width:14px;height:14px;
 .shot{border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(240,246,252,.12)}
 .shot img{display:block;width:${s.width}px;height:${s.height}px}
 </style></head><body>
-<div class="text"><div class="brand"><img src="data:image/png;base64,${icon}" alt="">GitHub Repo Navigator</div>
+<div class="text"><div class="brand"><img src="data:image/png;base64,${icon}" alt="">Repo Navigator</div>
 <h1>${esc(s.title)}</h1><p>${esc(s.body)}</p><ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul></div>
 <div class="stage"><div class="shot"><img src="data:image/png;base64,${s.image.toString('base64')}" alt=""></div></div>
 </body></html>`;

@@ -63,7 +63,7 @@ function alive(): boolean {
 const mounter = new DrawerMounter(document, store, {
   isAlive: alive,
   onDrawerOpen: refreshState,
-  log: (message, error) => console.warn(`[GitHub Repo Navigator] ${message}`, error instanceof Error ? error.message : ''),
+  log: (message, error) => console.warn(`[Repo Navigator] ${message}`, error instanceof Error ? error.message : ''),
 });
 
 if (!document.body?.classList.contains('logged-out')) {

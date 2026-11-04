@@ -1,6 +1,6 @@
 <p align="center"><img src="site/icon.png" width="72" height="72" alt=""></p>
 
-<h1 align="center">GitHub Repo Navigator</h1>
+<h1 align="center">Repo Navigator</h1>
 
 <p align="center"><strong>Every repository you can access, organized, right in GitHub's menu.</strong><br>
 A Chrome extension that replaces GitHub's short "Top repositories" lists with your complete list, grouped into your
@@ -262,18 +262,18 @@ Bug reports, ideas and pull requests are welcome in
 [issues](https://github.com/JD2005L/GitHubRepoNavigator/issues). Please run `npm run check` before sending a change.
 For a setup problem, include your Chrome version and what the settings page shows.
 
-GitHub Repo Navigator is free with nothing held back. If it saves you time, you can
+Repo Navigator is free with nothing held back. If it saves you time, you can
 [chip in toward its upkeep](https://paypal.me/jlevac84).
 
 More by the author: [Inbox Pilot](https://jd2005l.github.io/InboxPilot/) and
-[GitHub Actions Monitor](https://jd2005l.github.io/GithubActionsMonitor/).
+[Actions Monitor](https://jd2005l.github.io/GithubActionsMonitor/).
 
 ## License and name
 
 The code is licensed under the [GNU General Public License v3.0](LICENSE): you may use, study, change and share it,
 and anything you distribute that is based on it must be released under the same license, with its source.
 
-The license covers the code, not the name. "GitHub Repo Navigator" and its icon identify the official release by
+The license covers the code, not the name. "Repo Navigator" and its icon identify the official release by
 James Levac; if you publish a fork (for example on the Chrome Web Store), give it a different name and icon so people
 can tell them apart.
 
