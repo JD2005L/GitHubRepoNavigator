@@ -1,0 +1,29 @@
+# Managed by JD2005L/SecurityScan (tools/enable-github-security.py). Security updates only:
+# version updates are off (open-pull-requests-limit: 0), and each ecosystem's security fixes arrive
+# as one grouped pull request. Paperclip's Code Security Specialist merges or fixes them.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "security"
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "security"
