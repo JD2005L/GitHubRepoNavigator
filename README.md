@@ -266,7 +266,7 @@ Repo Navigator is free with nothing held back. If it saves you time, you can
 [chip in toward its upkeep](https://paypal.me/jlevac84).
 
 More by the author: [Inbox Pilot](https://jd2005l.github.io/InboxPilot/) and
-[Actions Monitor](https://jd2005l.github.io/GithubActionsMonitor/).
+[Actions CI Monitor](https://jd2005l.github.io/GithubActionsMonitor/).
 
 ## License and name
 
