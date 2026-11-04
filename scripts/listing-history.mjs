@@ -1,7 +1,9 @@
 // Which Chrome Web Store fields changed in which release, so SUBMIT.html can say exactly what to update in the
 // dashboard. store/listing-history.json keeps one snapshot per packaged version: each field's content (as SUBMIT.md
 // shows it, without notes) and, for images, a small grayscale thumbnail, compared with a tolerance because two
-// renders of the same screen are rarely byte-identical.
+// renders of the same screen are rarely byte-identical. A change too small for the thumbnails to see (a renamed label
+// in every screenshot, say) is declared with a file field's `revision` text: when it differs from the last release's,
+// the field and all its files count as changed.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fieldBody } from './submit-page.mjs';
@@ -44,12 +46,17 @@ export function imageFiles(tabs) {
   return tabs.flatMap((t) => t.fields.filter((f) => f.kind === 'file').flatMap((f) => f.files.filter((p) => IMAGE.test(p))));
 }
 
-/** One release's fields: { key: { kind, body, files?: { path: thumbnail } } }. */
+/** One release's fields: { key: { kind, body, files?: { path: thumbnail }, revision? } }. */
 export function snapshot(tabs, thumbs) {
   const fields = {};
   for (const tab of tabs) {
     for (const f of tab.fields) {
-      fields[fieldKey(tab.tab, f.label)] = { kind: f.kind, body: fieldBody(f), ...(f.kind === 'file' ? { files: Object.fromEntries(f.files.map((p) => [p, thumbs[p] ?? null])) } : {}) };
+      fields[fieldKey(tab.tab, f.label)] = {
+        kind: f.kind,
+        body: fieldBody(f),
+        ...(f.kind === 'file' ? { files: Object.fromEntries(f.files.map((p) => [p, thumbs[p] ?? null])) } : {}),
+        ...(f.revision ? { revision: f.revision } : {}),
+      };
     }
   }
   return fields;
@@ -122,7 +129,7 @@ function sameFile(path, a, b) {
 }
 
 function sameField(a, b) {
-  if (!a || !b || a.body !== b.body) return false;
+  if (!a || !b || a.body !== b.body || a.revision !== b.revision) return false;
   return Object.entries(a.files ?? {}).every(([p, t]) => p in (b.files ?? {}) && sameFile(p, t, b.files[p]));
 }
 
@@ -145,7 +152,7 @@ export function lineage(history, version) {
       return since;
     };
     const since = back((old) => sameField(field, old));
-    const files = Object.fromEntries(Object.entries(field.files ?? {}).map(([p, t]) => [p, back((old) => !!old?.files && p in old.files && sameFile(p, t, old.files[p]))]));
+    const files = Object.fromEntries(Object.entries(field.files ?? {}).map(([p, t]) => [p, back((old) => !!old?.files && p in old.files && old.revision === field.revision && sameFile(p, t, old.files[p]))]));
     const texts = field.kind === 'text' ? Object.fromEntries(releases.filter((r) => r.fields[key]).map((r) => [r.version, r.fields[key].body])) : undefined;
     const added = releases.find((r) => r.fields[key])?.version ?? version;
     result[key] = { since, added, files, ...(texts ? { texts } : {}) };

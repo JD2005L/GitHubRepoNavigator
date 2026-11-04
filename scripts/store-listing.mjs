@@ -1,5 +1,5 @@
 // The Chrome Web Store submission, field by field, in the Developer Dashboard's order. Single source of truth for
-// release/chrome-web-store-<version>/SUBMIT.html (copy buttons) and SUBMIT.md, written by scripts/store-assets.mjs.
+// release/chrome-web-store-<version>/SUBMIT.html (copy buttons) and SUBMIT.md, written by scripts/store-submit.mjs.
 //
 // Field kinds:
 //   text    paste `value` into the field (limit = the dashboard's character limit)
@@ -7,6 +7,8 @@
 //   file    upload the file(s) at `files` (paths relative to the submission folder)
 //   checks  tick exactly the options marked true
 //   info    nothing to enter (shown for orientation)
+//   (A file field's optional `revision` says what its images show; change it when they change in a way the
+//   listing history's thumbnail comparison cannot see, such as a renamed label, so SUBMIT.html marks them.)
 
 // Public product pages on levac.net, which the Chrome Web Store listing links to.
 const SITE = 'https://levac.net/repo-navigator/';
@@ -65,6 +67,7 @@ export function storeListing(version) {
           label: 'Screenshots',
           required: true,
           kind: 'file',
+          revision: 'Named Repo Navigator (caption)',
           files: ['images/screenshots/1-menu-sections.png', 'images/screenshots/2-filter.png', 'images/screenshots/3-dashboard-sidebar.png', 'images/screenshots/4-suggest-sections.png', 'images/screenshots/5-setup.png'],
           note: 'Upload all five, in this order. Each is 1280×800, 24-bit PNG, made from a made-up sample account.',
         },
