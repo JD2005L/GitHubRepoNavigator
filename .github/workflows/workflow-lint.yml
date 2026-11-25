@@ -1,0 +1,44 @@
+# Workflow lint: checks every GitHub Actions workflow file whenever a PR changes one.
+# A workflow file GitHub can't parse fails every run with zero jobs, so the deploy
+# silently stops (VillasAtCavanaghRavinePublic #16, 2026-11-25: one misplaced line,
+# merged with no checks, broke the deploy for eight hours). This makes that a red
+# check on the PR instead.
+# Fleet copy: JD2005L/PVICIRunner sweep/templates/. The runner sweep adds it to
+# repos that have workflows; /newproject adds it to new repos.
+name: Workflow lint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Run actionlint
+        env:
+          AL_VERSION: 1.7.12
+          AL_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/actionlint-$AL_VERSION"
+          mkdir -p "$d"
+          curl -fsSL --retry 3 -o "$d/al.tgz" \
+            "https://github.com/rhysd/actionlint/releases/download/v${AL_VERSION}/actionlint_${AL_VERSION}_linux_amd64.tar.gz"
+          echo "$AL_SHA256  $d/al.tgz" | sha256sum -c -
+          tar -xzf "$d/al.tgz" -C "$d" actionlint
+          # shellcheck and pyflakes are off: this gate is for workflow files GitHub
+          # can't run (YAML, schema, expressions), not for script style.
+          "$d/actionlint" -color -shellcheck= -pyflakes=
