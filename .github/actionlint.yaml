@@ -1,0 +1,8 @@
+# Settings for the Workflow lint check (.github/workflows/workflow-lint.yml).
+self-hosted-runner:
+  # PVI runners carry many labels (pvi-ci, pvi-ci-win, per-repo deploy labels),
+  # and new ones appear as repos are added. Accept any label: this check is for
+  # files GitHub can't run. Keeping jobs off GitHub-hosted labels is the
+  # PVICIRunner sweep's job.
+  labels:
+    - '*'
